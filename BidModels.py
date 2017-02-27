@@ -28,10 +28,10 @@ class ConstantBidModel(BidModelInterface):
         bestBid = 0
         bestCTR = 0
         # print(goldlabel.shape)
-        for bid in range(200, 300):
+        for bid in range(1, 300):
             self.defaultBid = bid
             bids = np.apply_along_axis(self.getBidPrice, axis=1, arr=goldlabel)
-            myEvaluator = Evaluator(25000, bids, allTrainData)
+            myEvaluator = Evaluator(25000*1000, bids, allTrainData)
             resultDict = myEvaluator.computePerformanceMetrics()
             if resultDict['won'] != 0:
                 print("CTR: ", resultDict['click'] / resultDict['won'])

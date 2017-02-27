@@ -10,7 +10,7 @@ class Evaluator():
 
     def computePerformanceMetrics(self):
         resultIndex = 0
-        self.resultDict = defaultdict(int)
+        self.resultDict = defaultdict(float)
 
         for i in range(self.goldlabels.shape[0]):
             # Check if bid id match?
@@ -20,7 +20,8 @@ class Evaluator():
                 if int(self.ourBids[resultIndex][1]) > int(self.goldlabels[i][22]):
                     # Won the bid!!
                     self.resultDict['won'] += 1
-                    self.resultDict['spend'] += self.goldlabels[i][22]  # Add the pay price for this ad
+                    # Add the pay price for this ad. Div by 1000 to convert to Chinese fen
+                    self.resultDict['spend'] += (self.goldlabels[i][22]/1000)
 
                     # Check if gold is clicked
                     if int(self.goldlabels[i][0]) == 1:
@@ -41,8 +42,9 @@ class Evaluator():
         print("Click: ", self.resultDict['click'])
         if self.resultDict['won'] != 0:
             print("CTR: ", self.resultDict['click'] / self.resultDict['won'])
+            print("CPM: ", self.resultDict['spend']/(self.resultDict['won']/1000))
         else:
-            print("CTR not computed as no. of won is 0")
+            print("CTR and CPM not computed as no. of won is 0")
         print("Spend: ", self.resultDict['spend'])
         if self.resultDict['click'] != 0:
             print("Average CPC: ", self.resultDict['spend'] / self.resultDict['click'])

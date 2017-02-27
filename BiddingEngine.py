@@ -14,7 +14,7 @@ def exeConstantBidModel(validationData, trainData=None, writeResult2CSV=False):
 
     if writeResult2CSV:
         ipinyouWriter.ResultWriter().writeResult("result.csv", bids)
-    myEvaluator = Evaluator.Evaluator(25000, bids, validationData.getTrainData())
+    myEvaluator = Evaluator.Evaluator(25000*1000, bids, validationData.getTrainData())
     myEvaluator.computePerformanceMetrics()
     myEvaluator.printResult()
 
