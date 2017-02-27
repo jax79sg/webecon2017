@@ -52,3 +52,17 @@ class ConstantBidModel(BidModelInterface):
         print("bestCTR: ", bestCTR)
         # return a fake default first
         self.defaultBid = bestBid
+
+
+class RandomBidModel(BidModelInterface):
+    """
+    Perform Random bidding using Gaussian distribution using mean and stdev of payprice compute from train set
+    """
+
+    def getBidPrice(self, oneBidRequest):
+        # print("bid: ", oneBidRequest)
+        bid = np.random.normal(loc=80.25102474739948, scale=6)
+        return [oneBidRequest[2], int(bid)]
+
+    def trainModel(self, allTrainData):
+        raise NotImplementedError
