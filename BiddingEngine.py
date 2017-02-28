@@ -14,11 +14,21 @@ def exeConstantBidModel(validationData, trainData=None, writeResult2CSV=False):
 
     if writeResult2CSV:
         ipinyouWriter.ResultWriter().writeResult("result.csv", bids)
-    myEvaluator = Evaluator.Evaluator(25000, bids, validationData.getTrainData())
+    myEvaluator = Evaluator.Evaluator(25000*1000, bids, validationData.getTrainData())
     myEvaluator.computePerformanceMetrics()
     myEvaluator.printResult()
 
+def exeRandomBidModel(validationData, trainData=None, writeResult2CSV=False):
+    # Constant Bidding Model
+    randomBidModel = BidModels.RandomBidModel()
 
+    bids = np.apply_along_axis(randomBidModel.getBidPrice, axis=1, arr=validationData.getTestData())
+
+    if writeResult2CSV:
+        ipinyouWriter.ResultWriter().writeResult("result.csv", bids)
+    myEvaluator = Evaluator.Evaluator(25000*1000, bids, validationData.getTrainData())
+    myEvaluator.computePerformanceMetrics()
+    myEvaluator.printResult()
 
 # # Read in train.csv to train the model
 trainReader = ipinyouReader.ipinyouReader("../dataset/train.csv")
@@ -29,7 +39,10 @@ devReader = ipinyouReader.ipinyouReader("../dataset/validation.csv")
 # devData = devReader.getTestData()
 
 # Execute Constant Bid Model
-exeConstantBidModel(validationData=devReader, trainData=trainReader, writeResult2CSV=False)
+# exeConstantBidModel(validationData=devReader, trainData=trainReader, writeResult2CSV=False)
+
+# Execute Random Bid Model
+exeRandomBidModel(validationData=devReader, trainData=trainReader, writeResult2CSV=False)
 
 
 

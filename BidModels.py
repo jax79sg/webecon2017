@@ -28,10 +28,10 @@ class ConstantBidModel(BidModelInterface):
         bestBid = 0
         bestCTR = 0
         # print(goldlabel.shape)
-        for bid in range(200, 300):
+        for bid in range(1, 300):
             self.defaultBid = bid
             bids = np.apply_along_axis(self.getBidPrice, axis=1, arr=goldlabel)
-            myEvaluator = Evaluator(25000, bids, allTrainData)
+            myEvaluator = Evaluator(25000*1000, bids, allTrainData)
             resultDict = myEvaluator.computePerformanceMetrics()
             if resultDict['won'] != 0:
                 print("CTR: ", resultDict['click'] / resultDict['won'])
@@ -52,3 +52,17 @@ class ConstantBidModel(BidModelInterface):
         print("bestCTR: ", bestCTR)
         # return a fake default first
         self.defaultBid = bestBid
+
+
+class RandomBidModel(BidModelInterface):
+    """
+    Perform Random bidding using Gaussian distribution using mean and stdev of payprice compute from train set
+    """
+
+    def getBidPrice(self, oneBidRequest):
+        # print("bid: ", oneBidRequest)
+        bid = np.random.normal(loc=80.25102474739948, scale=6)
+        return [oneBidRequest[2], int(bid)]
+
+    def trainModel(self, allTrainData):
+        raise NotImplementedError
