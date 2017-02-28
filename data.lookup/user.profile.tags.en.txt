@@ -1,0 +1,44 @@
+10006	Long-term interest/news
+10024	Long-term interest/eduation
+10031	Long-term interest/automobile
+10048	Long-term interest/real estate
+10052	Long-term interest/IT
+10057	Long-term interest/electronic game
+10059	Long-term interest/fashion
+10063	Long-term interest/entertainment
+10067	Long-term interest/luxury
+10074	Long-term interest/home and lifestyle
+10075	Long-term interest/health
+10076	Long-term interest/food
+10077	Long-term interest/divine
+10079	Long-term interest/motherhood&parenting
+10083	Long-term interest/sports
+10093	Long-term interest/travel&outdoors
+10102	Long-term interest/social
+10684	In-market/3c product
+11092	In-market/appliances
+11278	In-market/clothing、shoes&bags
+11379	In-market/Beauty& Personal Care
+11423	In-market/household&home improvement
+11512	In-market/infant&mom products
+11576	In-market/sports item
+11632	In-market/outdoor
+11680	In-market/health care products
+11724	In-market/luxury
+11944	In-market/real estate
+13042	In-market/automobile
+13403	In-market/finance
+13496	In-market/travel
+13678	In-market/education
+13776	In-market/service
+13800	Long-term interest/art&photography&design
+13866	Long-term interest/online literature
+13874	In-market/electronic game
+14273	Long-term interest/3c
+16593	In-market/book
+16617	In-market/medicine
+16661	In-market/food&drink
+16706	Long-term interest/culture
+16751	Long-term interest/sex
+10110	Demographic/gender/male
+10111	Demographic/gender/famale
