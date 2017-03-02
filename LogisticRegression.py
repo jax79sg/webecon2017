@@ -10,7 +10,7 @@
     TODO:
         Fixed - disregard accuracy for now (Means will not use validation data... Will fix/update in next version)
         - Still cannot handle alphabetical variables e.g. useragent .... Will fix/update in next version.
-        - The data has too many click=0, trained model is skewed. To refine train model
+        Fixed - The data has too many click=0, trained model is skewed. To refine train model
 2. CTR estimation
     - Estimate click for every record in the test set using the model above
     - Compute pCTR = sumofclicks/alltestrecords
