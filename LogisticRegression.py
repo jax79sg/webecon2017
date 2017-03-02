@@ -62,8 +62,10 @@ from sklearn import metrics
 
 regressionFormulaY='click'
 regressionFormulaX='weekday + hour + region + city + adexchange +slotwidth + slotheight + slotprice + advertiser'
-trainset="../dataset/trainPruned.csv"
-validationset="../dataset/validationPruned.csv"
+# trainset="../dataset/trainPruned.csv"
+trainset="../dataset/train.csv"
+# validationset="../dataset/validationPruned.csv"
+validationset="../dataset/validation.csv"
 testset="../dataset/test.csv"
 
 
@@ -73,7 +75,10 @@ testset="../dataset/test.csv"
 
 # load dataset
 print("Reading dataset...")
-trainDF = ipinyouReader.ipinyouReader(trainset).getDataFrame()
+# trainDF = ipinyouReader.ipinyouReader(trainset).getDataFrame()
+reader_encoded = ipinyouReader.ipinyouReaderWithEncoding()
+trainDF, validateDF, testDF, lookupDict = reader_encoded.getTrainValidationTestDD(trainset, validationset, testset)
+# print("trainDF.info(): ", trainDF.info())
 
 print("Setting up Y and X for logistic regression")
 yTrain, xTrain =patsy.dmatrices(regressionFormulaY + ' ~ ' + regressionFormulaX,trainDF, return_type="dataframe")
@@ -95,8 +100,8 @@ print("\n\nTraining acccuracy: %5.3f" % model.score(xTrain, yTrain))
 
 ########################
 ## Prediction of validation set (Clicks)
-print("Reading validation set")
-validateDF = ipinyouReader.ipinyouReader(validationset).getDataFrame()
+# print("Reading validation set")
+# validateDF = ipinyouReader.ipinyouReader(validationset).getDataFrame()
 
 
 print("Setting up X Y validation for prediction")
@@ -113,8 +118,8 @@ print ("\n\nPrediction acc on validation set: %f5.3" % metrics.accuracy_score(yV
 
 ########################
 ## Prediction of test set (Clicks)
-print("Reading test set")
-testDF = ipinyouReader.ipinyouReader(testset).getDataFrame()
+# print("Reading test set")
+# testDF = ipinyouReader.ipinyouReader(testset).getDataFrame()
 
 print("Setting up X test for prediction")
 xTest =patsy.dmatrix(regressionFormulaX,testDF, return_type="dataframe")
