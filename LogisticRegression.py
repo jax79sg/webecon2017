@@ -58,15 +58,25 @@ from sklearn import metrics
 # usertag='usertag'
 
 
+
+
+regressionFormulaY='click'
+regressionFormulaX='weekday + hour + region + city + adexchange +slotwidth + slotheight + slotprice + advertiser'
+trainset="../dataset/trainPruned.csv"
+validationset="../dataset/validationPruned.csv"
+testset="../dataset/test.csv"
+
+
 ##########################
 ## Modelling and training
 
+
 # load dataset
 print("Reading dataset...")
-trainDF = ipinyouReader.ipinyouReader("../dataset/trainPruned.csv").getDataFrame()
+trainDF = ipinyouReader.ipinyouReader(trainset).getDataFrame()
 
 print("Setting up Y and X for logistic regression")
-yTrain, xTrain =patsy.dmatrices('click ~ weekday + hour + region + city + adexchange +slotwidth + slotheight + slotprice + advertiser',trainDF, return_type="dataframe")
+yTrain, xTrain =patsy.dmatrices(regressionFormulaY + ' ~ ' + regressionFormulaX,trainDF, return_type="dataframe")
 print((xTrain.columns))
 print ("No of features in input matrix: %d" % len(xTrain.columns))
 
@@ -86,15 +96,15 @@ print("\n\nTraining acccuracy: %5.3f" % model.score(xTrain, yTrain))
 ########################
 ## Prediction of validation set (Clicks)
 print("Reading validation set")
-validateDF = ipinyouReader.ipinyouReader("../dataset/validationPruned.csv").getDataFrame()
+validateDF = ipinyouReader.ipinyouReader(validationset).getDataFrame()
 
 
 print("Setting up X Y validation for prediction")
-yValidate, xValidate =patsy.dmatrices('click ~ weekday + hour + region + city + adexchange +slotwidth + slotheight + slotprice + advertiser',validateDF, return_type="dataframe")
+yValidate, xValidate =patsy.dmatrices(regressionFormulaY + ' ~ ' + regressionFormulaX,validateDF, return_type="dataframe")
 print ("No of features in input matrix: %d" % len(xValidate.columns))
 
 # predict click labels for the validation set
-print("Predicting...")
+print("Predicting validation set...")
 predicted = model.predict(xValidate) #0.5 prob threshold
 print("Writing to csv")
 valPredictionWriter=ResultWriter()
@@ -104,16 +114,15 @@ print ("\n\nPrediction acc on validation set: %f5.3" % metrics.accuracy_score(yV
 ########################
 ## Prediction of test set (Clicks)
 print("Reading test set")
-testDF = ipinyouReader.ipinyouReader("../dataset/test.csv").getDataFrame()
+testDF = ipinyouReader.ipinyouReader(testset).getDataFrame()
 
 print("Setting up X test for prediction")
-xTest =patsy.dmatrix('weekday + hour + region + city + adexchange +slotwidth + slotheight + slotprice + advertiser',testDF, return_type="dataframe")
+xTest =patsy.dmatrix(regressionFormulaX,testDF, return_type="dataframe")
 print ("No of features in input matrix: %d" % len(xValidate.columns))
 
 # predict click labels for the test set
-print("Predicting...")
+print("Predicting test set...")
 predicted = model.predict(xTest) #0.5 prob threshold
-print(type(predicted))
 print("Writing to csv")
 testPredictionWriter=ResultWriter()
 testPredictionWriter.writeResult(filename="predictTest.csv", data=predicted)
