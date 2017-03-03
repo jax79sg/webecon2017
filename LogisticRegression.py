@@ -62,9 +62,11 @@ from sklearn import metrics
 
 regressionFormulaY='click'
 regressionFormulaX='weekday + hour + region + city + adexchange +slotwidth + slotheight + slotprice + advertiser'
-trainset="../dataset/trainPruned.csv"
-validationset="../dataset/validationPruned.csv"
-regressionFormulaX='region + city +slotwidth + slotheight + slotprice'
+# trainset="../dataset/trainPruned.csv"
+trainset="../dataset/train.csv"
+# validationset="../dataset/validationPruned.csv"
+validationset="../dataset/validation.csv"
+testset="../dataset/test.csv"
 
 
 ##########################
