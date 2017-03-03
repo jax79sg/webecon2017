@@ -20,8 +20,8 @@ class Evaluator():
                 if int(self.ourBids[resultIndex][1]) > int(self.goldlabels[i][22]):
                     # Won the bid!!
                     self.resultDict['won'] += 1
-                    # Add the pay price for this ad. Div by 1000 to convert to Chinese fen
-                    self.resultDict['spend'] += (self.goldlabels[i][22]/1000)
+                    # Add the pay price for this ad.
+                    self.resultDict['spend'] += (self.goldlabels[i][22])
 
                     # Check if gold is clicked
                     if int(self.goldlabels[i][0]) == 1:
