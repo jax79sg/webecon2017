@@ -12,6 +12,17 @@ class BidModelInterface():
     def trainModel(self, allTrainData):
         raise NotImplementedError
 
+    def computeBidPrice(self, basebid, pCTR, avgCTR):
+        """
+        The default computation to compute bid price
+        The implemented model should have its own ways to gather the necessary parameters as follows
+        :param basebid:
+        :param pCTR:
+        :param avgCTR:
+        :return: bid
+        """
+        bid=basebid*(pCTR/avgCTR)
+        return bid
 
 class ConstantBidModel(BidModelInterface):
     def __init__(self):
