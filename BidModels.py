@@ -32,18 +32,20 @@ class ConstantBidModel(BidModelInterface):
         # print("bid: ", oneBidRequest)
         return [oneBidRequest[2], int(self.defaultBid)]# oneBidRequest[2] = bidid
 
-    def trainModel(self, allTrainData):
+    def trainModel(self, allTrainData, searchRange=[1, 300], budget=25000*1000):
         goldlabel = np.copy(allTrainData)
         goldlabel = np.delete(goldlabel, [0, 21, 22], axis=1)# remove 'click','bidprice','payprice'
 
         bestBid = 0
         bestCTR = 0
         # print(goldlabel.shape)
-        for bid in range(1, 300):# TODO: this could be input param for the range perhaps
+        for bid in range(searchRange[0], searchRange[1]):
         #for bid in range(1000, 1001):  # To test cutting back budget
             self.defaultBid = bid
+            start_time = time.time()
             bids = np.apply_along_axis(self.getBidPrice, axis=1, arr=goldlabel) #TODO: this is also slow as unnessariily retrieving 1 at a time
-            myEvaluator = Evaluator(25000*1000, bids, allTrainData) #TODO: wouldn't train budget be different, i.e factor into account how many more entries there are?
+            print('Metrics np.apply_along_axis time: {} seconds'.format(round(time.time() - start_time, 2)))
+            myEvaluator = Evaluator(budget, bids, allTrainData)
             resultDict = myEvaluator.computePerformanceMetrics()
             if resultDict['won'] != 0:
                 print("Constant bid: {} CTR: {}".format(self.defaultBid, resultDict['click'] / resultDict['won']))

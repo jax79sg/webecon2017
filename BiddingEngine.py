@@ -9,7 +9,7 @@ def exeConstantBidModel(validationData, trainData=None, writeResult2CSV=False):
     # Constant Bidding Model
     constantBidModel = BidModels.ConstantBidModel()
     if trainData != None:
-        constantBidModel.trainModel(trainData.getTrainData())
+        constantBidModel.trainModel(trainData.getTrainData(), searchRange=[1, 10], budget=int(25000*1000*8.88))
     bids = np.apply_along_axis(constantBidModel.getBidPrice, axis=1, arr=validationData.getTestData())
 
     if writeResult2CSV:
