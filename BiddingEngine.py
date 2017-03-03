@@ -18,9 +18,22 @@ def exeConstantBidModel(validationData, trainData=None, writeResult2CSV=False):
     myEvaluator.computePerformanceMetrics()
     myEvaluator.printResult()
 
-def exeRandomBidModel(validationData, trainData=None, writeResult2CSV=False):
-    # Constant Bidding Model
-    randomBidModel = BidModels.RandomBidModel()
+def exeGaussianRandomBidModel(validationData, trainData=None, writeResult2CSV=False):
+    # gaussian random Bidding Model
+    randomBidModel = BidModels.GaussianRandomBidModel()
+
+    bids = np.apply_along_axis(randomBidModel.getBidPrice, axis=1, arr=validationData.getTestData())
+
+    if writeResult2CSV:
+        ipinyouWriter.ResultWriter().writeResult("result.csv", bids)
+    myEvaluator = Evaluator.Evaluator(25000*1000, bids, validationData.getTrainData())
+    myEvaluator.computePerformanceMetrics()
+    myEvaluator.printResult()
+
+def exeUniformRandomBidModel(validationData, trainData=None, writeResult2CSV=False):
+    # uniform random Bidding Model
+    randomBidModel = BidModels.UniformRandomBidModel(300) #upper bound for random bidding range
+    # TODO: could train this too in a range.
 
     bids = np.apply_along_axis(randomBidModel.getBidPrice, axis=1, arr=validationData.getTestData())
 
@@ -32,17 +45,22 @@ def exeRandomBidModel(validationData, trainData=None, writeResult2CSV=False):
 
 # # Read in train.csv to train the model
 trainReader = ipinyouReader.ipinyouReader("../dataset/train.csv")
-# trainData = trainReader.getTrainData()
+#trainData = trainReader.getTrainData()
 
 # Read in Validation.csv for developmental testing
 devReader = ipinyouReader.ipinyouReader("../dataset/validation.csv")
-# devData = devReader.getTestData()
+#devData = devReader.getTestData()
 
 # Execute Constant Bid Model
-# exeConstantBidModel(validationData=devReader, trainData=trainReader, writeResult2CSV=False)
+print("== Constant bid model")
+exeConstantBidModel(validationData=devReader, trainData=trainReader, writeResult2CSV=False)
 
-# Execute Random Bid Model
-exeRandomBidModel(validationData=devReader, trainData=trainReader, writeResult2CSV=False)
+# Execute Gaussian Random Bid Model
+print("== Gaussian random bid model")
+exeGaussianRandomBidModel(validationData=devReader, trainData=trainReader, writeResult2CSV=False)
 
+# Execute Uniform Random Bid Model
+print("== Uniform random bid model")
+exeUniformRandomBidModel(validationData=devReader, trainData=trainReader, writeResult2CSV=False)
 
 

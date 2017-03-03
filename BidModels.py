@@ -56,7 +56,7 @@ class ConstantBidModel(BidModelInterface):
 
 class RandomBidModel(BidModelInterface):
     """
-    Perform Random bidding using Gaussian distribution using mean and stdev of payprice compute from train set
+    Perform Random bidding using Gaussian distribution based on mean and stdev of payprice compute from train set
     """
 
     def getBidPrice(self, oneBidRequest):
