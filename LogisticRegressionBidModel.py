@@ -20,14 +20,6 @@
 3. Compute bid = base_bid x pCTR/avgCTR
     - A bit lost here, what's avgCTR ??
 
-"""
-
-import numpy as np
-from patsy import patsy
-from sklearn.linear_model import LogisticRegression
-import ipinyouReader as ipinyouReader
-from ipinyouWriter import ResultWriter as ResultWriter
-from sklearn import metrics
 
 # #List of column names. To be copy and pasted (as needed) in the formula for logistic regression
 # click='click'
@@ -56,6 +48,16 @@ from sklearn import metrics
 # keypage='keypage'
 # advertiser='advertiser'
 # usertag='usertag'
+"""
+
+import numpy as np
+from patsy import patsy
+from sklearn.linear_model import LogisticRegression
+import ipinyouReader as ipinyouReader
+from ipinyouWriter import ResultWriter as ResultWriter
+from sklearn import metrics
+
+
 
 from BidModels import BidModelInterface
 
@@ -63,6 +65,7 @@ class LogisticRegressionBidModel(BidModelInterface):
     _regressionFormulaY =''
     _regressionFormulaX =''
     _model=None
+
     def __init__(self, regressionFormulaY='click', regressionFormulaX='weekday + hour + region + city + adexchange +slotwidth + slotheight + slotprice + advertiser'):
         self._regressionFormulaY=regressionFormulaY
         self._regressionFormulaX = regressionFormulaX
@@ -124,27 +127,12 @@ print("Reading dataset...")
 trainset = "../dataset/train.csv"
 validationset = "../dataset/validation.csv"
 testset = "../dataset/test.csv"
-# trainDF = ipinyouReader.ipinyouReader(trainset).getDataFrame()
 reader_encoded = ipinyouReader.ipinyouReaderWithEncoding()
 trainDF, validateDF, testDF, lookupDict = reader_encoded.getTrainValidationTestDD(trainset, validationset, testset)
 print("Training dataset...")
 lrBidModel=LogisticRegressionBidModel()
 lrBidModel.trainModel(trainDF)
-# print("trainDF.info(): ", trainDF.info())
 
-
-########################
-## Prediction of validation set (Clicks)
-# print("Reading validation set")
-# validateDF = ipinyouReader.ipinyouReader(validationset).getDataFrame()
-
-
-
-
-########################
-## Prediction of test set (Clicks)
-# print("Reading test set")
-# testDF = ipinyouReader.ipinyouReader(testset).getDataFrame()
 
 
 
