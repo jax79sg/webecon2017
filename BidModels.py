@@ -25,8 +25,8 @@ class BidModelInterface():
         return bid
 
 class ConstantBidModel(BidModelInterface):
-    def __init__(self):
-        self.defaultBid = 10 # CTR(train): 0.00045433893684688776
+    def __init__(self, defaultbid=10):
+        self.defaultBid = defaultbid # CTR(train): 0.00045433893684688776
 
     def getBidPrice(self, oneBidRequest):
         # print("bid: ", oneBidRequest)
