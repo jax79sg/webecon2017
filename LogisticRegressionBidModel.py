@@ -119,7 +119,7 @@ class LogisticRegressionBidModel(BidModelInterface):
             print("Error: No model was trained in this instance....")
 
 
-# load dataset
+# load datasets
 print("Reading dataset...")
 trainset = "../dataset/train.csv"
 validationset = "../dataset/validation.csv"
