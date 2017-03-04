@@ -20,6 +20,15 @@
 3. Compute bid = base_bid x pCTR/avgCTR
     - A bit lost here, what's avgCTR ??
 
+"""
+
+import numpy as np
+from patsy import patsy
+from sklearn.linear_model import LogisticRegression
+import ipinyouReader as ipinyouReader
+from ipinyouWriter import ResultWriter as ResultWriter
+from sklearn import metrics
+from sklearn.grid_search import GridSearchCV
 
 # #List of column names. To be copy and pasted (as needed) in the formula for logistic regression
 # click='click'
@@ -48,16 +57,6 @@
 # keypage='keypage'
 # advertiser='advertiser'
 # usertag='usertag'
-"""
-
-import numpy as np
-from patsy import patsy
-from sklearn.linear_model import LogisticRegression
-import ipinyouReader as ipinyouReader
-from ipinyouWriter import ResultWriter as ResultWriter
-from sklearn import metrics
-
-
 
 from BidModels import BidModelInterface
 
@@ -98,12 +97,70 @@ class LogisticRegressionBidModel(BidModelInterface):
         yTrain = np.ravel(yTrain)
 
         # instantiate a logistic regression model, and fit with X and y
-        self._model = LogisticRegression()
+        self._model = LogisticRegression(C=0.1)
         print("Training Model...")
         self._model = self._model.fit(xTrain, yTrain)  # Loss function:liblinear
 
         # check the accuracy on the training set
         print("\n\nTraining acccuracy: %5.3f" % self._model.score(xTrain, yTrain))
+
+
+    def gridSearchandCrossValidate(self, allTrainData):
+        print("Setting up Y and X for logistic regression")
+        yTrain, xTrain = patsy.dmatrices(self._regressionFormulaY + ' ~ ' + self._regressionFormulaX, allTrainData,
+                                         return_type="dataframe")
+        print((xTrain.columns))
+        print("No of features in input matrix: %d" % len(xTrain.columns))
+
+        # flatten y into a 1-D array
+        print("Flatten y into 1-D array")
+        yTrain = np.ravel(yTrain)
+
+        # LogisticRegression(penalty='l2',
+        #                    dual=False,
+        #                    tol=0.0001,
+        #                    C=1.0,
+        #                    fit_intercept=True,
+        #                    intercept_scaling=1,
+        #                    class_weight=None,
+        #                    random_state=None,
+        #                    solver='liblinear',
+        #                    max_iter=100,
+        #                    multi_class='ovr',
+        #                    verbose=0,
+        #                    warm_start=False,
+        #                    n_jobs=1)
+
+        ## Setup Grid Search parameter
+
+        param_grid = [{
+                          'solver': ['liblinear'],
+                          'C': [0.095, 0.1, 0.105],
+                          'class_weight':[None],  # None is better
+                          'penalty': ['l2', 'l1'],
+                      }
+                        ,
+                      {
+                          'solver': ['newton-cg', 'lbfgs', 'sag'],
+                          'C': [0.09, 0.1, 0.2, 1.0],
+                          'max_iter':[50000],
+                          'class_weight': [None, 'Balanced'],  # None is better
+                          'penalty': ['l2'],
+                      }
+                      ]
+
+        optimized_LR = GridSearchCV(LogisticRegression(),
+                                     param_grid=param_grid,
+                                     scoring='accuracy',
+                                     cv=5,
+                                     n_jobs=-1,
+                                     error_score='raise')
+        self._model = optimized_LR.fit(xTrain, yTrain)
+
+        scores = optimized_LR.grid_scores_
+        # print(type(scores))
+        for i in range(len(scores)):
+            print(optimized_LR.grid_scores_[i])
 
     def validateModel(self, allValidateData):
         if(self._model!=None):
@@ -122,16 +179,20 @@ class LogisticRegressionBidModel(BidModelInterface):
             print("Error: No model was trained in this instance....")
 
 
-# load datasets
-print("Reading dataset...")
-trainset = "../dataset/train.csv"
-validationset = "../dataset/validation.csv"
-testset = "../dataset/test.csv"
-reader_encoded = ipinyouReader.ipinyouReaderWithEncoding()
-trainDF, validateDF, testDF, lookupDict = reader_encoded.getTrainValidationTestDD(trainset, validationset, testset)
-print("Training dataset...")
-lrBidModel=LogisticRegressionBidModel()
-lrBidModel.trainModel(trainDF)
+if __name__ == "__main__":
+    # load datasets
+    print("Reading dataset...")
+    trainset = "../dataset/train_cleaned_prune.csv"
+    validationset = "../dataset/validation_cleaned_prune.csv"
+    testset = "../dataset/test.csv"
+    # trainDF = ipinyouReader.ipinyouReader(trainset).getDataFrame()
+    reader_encoded = ipinyouReader.ipinyouReaderWithEncoding()
+    trainDF, validateDF, testDF, lookupDict = reader_encoded.getTrainValidationTestDD(trainset, validationset, testset)
+    print("Training dataset...")
+    lrBidModel=LogisticRegressionBidModel()
+    lrBidModel.gridSearchandCrossValidate(trainDF)
+    lrBidModel.trainModel(trainDF)
+    # print("trainDF.info(): ", trainDF.info())
 
 
 

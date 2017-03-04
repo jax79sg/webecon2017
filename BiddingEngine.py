@@ -9,8 +9,10 @@ def exeConstantBidModel(validationData, trainData=None, writeResult2CSV=False):
     # Constant Bidding Model
     constantBidModel = BidModels.ConstantBidModel()
     if trainData != None:
-        constantBidModel.trainModel(trainData.getTrainData())
-    bids = np.apply_along_axis(constantBidModel.getBidPrice, axis=1, arr=validationData.getTestData())
+        constantBidModel.trainModel(trainData.getTrainData(), searchRange=[1, 500], budget=int(25000*1000*8.88))
+
+    bids = constantBidModel.getBidPrice((validationData.getTestData())[:, 2])
+    # bids = np.apply_along_axis(constantBidModel.getBidPrice, axis=1, arr=validationData.getTestData())
 
     if writeResult2CSV:
         ipinyouWriter.ResultWriter().writeResult("result.csv", bids)
@@ -53,7 +55,7 @@ devReader = ipinyouReader.ipinyouReader("../dataset/validation.csv")
 
 # Execute Constant Bid Model
 print("== Constant bid model")
-exeConstantBidModel(validationData=devReader, trainData=trainReader, writeResult2CSV=False)
+exeConstantBidModel(validationData=devReader, trainData=None, writeResult2CSV=False)
 
 # Execute Gaussian Random Bid Model
 print("== Gaussian random bid model")

@@ -57,13 +57,13 @@ class ipinyouReaderWithEncoding():
         :param header: csv has header? 0 or None
         :return: trainDF, validationDF, testDF, lookupDict
         """
-        print("Reading: ", trainFilename)
+        print("Reading Train: ", trainFilename)
         traindf = pd.read_csv(trainFilename, delimiter=',', low_memory=False, header=header)
 
-        print("Reading: ", validationFilename)
+        print("Reading Validate: ", validationFilename)
         validationdf = pd.read_csv(validationFilename, delimiter=',', low_memory=False, header=header)
 
-        print("Reading: ", testFilename)
+        print("Reading Test: ", testFilename)
         testdf = pd.read_csv(testFilename, delimiter=',', low_memory=False, header=header)
 
         # Concat the data vertically
@@ -82,6 +82,7 @@ class ipinyouReaderWithEncoding():
 
                 replaced = combined_set[feature]
 
+                # TODO: Need to find a way to speed this up
                 if feature == 'bidid':
                     colDict = {}
                     for i in range(len(original)):
@@ -94,9 +95,9 @@ class ipinyouReaderWithEncoding():
         validation = combined_set[traindf.shape[0]:(traindf.shape[0]+validationdf.shape[0])]
         test = combined_set[(traindf.shape[0]+validationdf.shape[0]):]
 
-        print(train.shape[0])
-        print(validation.shape[0])
-        print(test.shape[0])
+        print("Length of Train: ", train.shape[0])
+        print("Length of Validation: ", validation.shape[0])
+        print("Length of Test: ", test.shape[0])
 
         return train, validation, test, dict
 

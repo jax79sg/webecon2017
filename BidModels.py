@@ -2,6 +2,7 @@ from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 import numpy as np
 from Evaluator import Evaluator
+import time
 
 class BidModelInterface():
     @abstractmethod
@@ -25,25 +26,57 @@ class BidModelInterface():
         return bid
 
 class ConstantBidModel(BidModelInterface):
-    def __init__(self, defaultbid=10):
-        self.defaultBid = defaultbid # CTR(train): 0.00045433893684688776
+    def __init__(self, defaultbid=300):
+        """
+        Init the model
+        Default bid is a hyperparameter from previous training
 
-    def getBidPrice(self, oneBidRequest):
-        # print("bid: ", oneBidRequest)
-        return [oneBidRequest[2], int(self.defaultBid)]# oneBidRequest[2] = bidid
+        :param defaultbid: Hyperparameter from previous training
+        """
+        # Based on training set
+        # bestBid: 300
+        # bestCTR: 0.000753964988446
+        self.defaultBid = defaultbid
 
-    def trainModel(self, allTrainData):
+    def getBidPrice(self, allBidid):
+        """
+        Takes in all array of bidid and append a constant bid for everyone
+
+        :param allBidid: Array of bidid
+        :return: [bidid, bidprice]
+        """
+        bidprice = np.full(allBidid.shape[0], self.defaultBid, dtype=int)
+        bids = np.stack([allBidid, bidprice], axis=1)
+
+        return bids
+
+    def trainModel(self, allTrainData, searchRange=[1, 300], budget=25000*1000):
+        """
+        Train the constant model.
+
+        A best bid price will be returned
+
+        Budget should be in chinese fen * 1000
+
+        :param allTrainData: Training data in matrix
+        :param searchRange: Search Grid in array for best bid price. [lowerbound, upperbound]
+        :param budget: The budget to use. chinese fen * 1000
+        :return: The best constant bid price that obtained the highest CTR
+
+        """
         goldlabel = np.copy(allTrainData)
         goldlabel = np.delete(goldlabel, [0, 21, 22], axis=1)# remove 'click','bidprice','payprice'
 
         bestBid = 0
         bestCTR = 0
         # print(goldlabel.shape)
-        for bid in range(1, 300):# TODO: this could be input param for the range perhaps
-        #for bid in range(1000, 1001):  # To test cutting back budget
+        for bid in range(searchRange[0], searchRange[1]):
+        # for bid in range(1000, 1001):  # To test cutting back budget
             self.defaultBid = bid
-            bids = np.apply_along_axis(self.getBidPrice, axis=1, arr=goldlabel) #TODO: this is also slow as unnessariily retrieving 1 at a time
-            myEvaluator = Evaluator(25000*1000, bids, allTrainData) #TODO: wouldn't train budget be different, i.e factor into account how many more entries there are?
+            # start_time = time.time()
+            bids = self.getBidPrice(allTrainData[:,3])
+            # print('Metrics np.apply_along_axis time: {} seconds'.format(round(time.time() - start_time, 2)))
+            myEvaluator = Evaluator(budget, bids, allTrainData)
             resultDict = myEvaluator.computePerformanceMetrics()
             if resultDict['won'] != 0:
                 print("Constant bid: {} CTR: {}".format(self.defaultBid, resultDict['click'] / resultDict['won']))
@@ -64,6 +97,8 @@ class ConstantBidModel(BidModelInterface):
         print("bestCTR: ", bestCTR)
         # return a fake default first
         self.defaultBid = bestBid
+
+        return  self.defaultBid
 
 
 class GaussianRandomBidModel(BidModelInterface):
