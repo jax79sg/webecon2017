@@ -28,6 +28,7 @@ from sklearn.linear_model import LogisticRegression
 import ipinyouReader as ipinyouReader
 from ipinyouWriter import ResultWriter as ResultWriter
 from sklearn import metrics
+from sklearn.externals import joblib
 
 # #List of column names. To be copy and pasted (as needed) in the formula for logistic regression
 # click='click'
@@ -59,7 +60,7 @@ from sklearn import metrics
 
 
 
-
+isTraining=False
 regressionFormulaY='click'
 regressionFormulaX='weekday + hour + region + city + adexchange +slotwidth + slotheight + slotprice + advertiser'
 # trainset="../dataset/trainPruned.csv"
@@ -91,8 +92,14 @@ yTrain = np.ravel(yTrain)
 
 # instantiate a logistic regression model, and fit with X and y
 model = LogisticRegression()
-print("Training Model...")
-model = model.fit(xTrain, yTrain)   #Loss function:liblinear
+if(isTraining):
+    print("Training Model...")
+    model = model.fit(xTrain, yTrain)   #Loss function:liblinear
+    print("Model trained...persisting it to disk")
+    joblib.dump(model, 'logisticRegressionTrainedModel.pkl')
+else:
+    print("Loading trained model from disk")
+    model = joblib.load('logisticRegressionTrainedModel.pkl')
 
 # check the accuracy on the training set
 print("\n\nTraining acccuracy: %5.3f" % model.score(xTrain, yTrain))
@@ -110,10 +117,12 @@ print ("No of features in input matrix: %d" % len(xValidate.columns))
 
 # predict click labels for the validation set
 print("Predicting validation set...")
+
 predicted = model.predict(xValidate) #0.5 prob threshold
+predicted_prob=print(model.predict_proba(xValidate))
 print("Writing to csv")
 valPredictionWriter=ResultWriter()
-valPredictionWriter.writeResult(filename="predictValidate.csv", data=predicted)
+valPredictionWriter.writeResult(filename="predictProbValidate.csv", data=predicted_prob)
 print ("\n\nPrediction acc on validation set: %f5.3" % metrics.accuracy_score(yValidate, predicted))
 
 ########################
@@ -127,6 +136,7 @@ print ("No of features in input matrix: %d" % len(xValidate.columns))
 
 # predict click labels for the test set
 print("Predicting test set...")
+print(model.classes_)
 predicted = model.predict(xTest) #0.5 prob threshold
 print("Writing to csv")
 testPredictionWriter=ResultWriter()
