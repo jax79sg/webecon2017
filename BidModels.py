@@ -3,6 +3,7 @@ from collections import defaultdict
 import numpy as np
 from Evaluator import Evaluator
 import time
+from sklearn.externals import joblib
 
 class BidModelInterface():
     @abstractmethod
@@ -10,8 +11,27 @@ class BidModelInterface():
         raise NotImplementedError
 
     @abstractmethod
-    def trainModel(self, allTrainData):
+    def trainModel(self, allTrainData, retrain=True):
         raise NotImplementedError
+
+    def saveModel(self, model, filename):
+        """
+        Save a scikit-learn trained model into a dumped file
+        :param model:
+        :param filename:
+        :return:
+        """
+        print("Dumping trained model to file: ", filename)
+        joblib.dump(self._model, 'logisticRegressionTrainedModel.pkl')
+
+    def loadSavedModel(self, filename):
+        """
+        Load a scikit-learn trained model from a previously dumped file
+        :param filename:
+        :return:
+        """
+        print("Loading trained model from file: ", filename)
+        return joblib.load(filename)
 
 
 class ConstantBidModel(BidModelInterface):
