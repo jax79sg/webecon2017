@@ -63,8 +63,8 @@ def exeLogisticRegressionBidModel(validationData=None, trainData=None, writeResu
     bids = lrBidModel.getBidPrice(validationData.getDataFrame())
     if writeResult2CSV:
         ipinyouWriter.ResultWriter().writeResult("LRbidModelresult.csv", bids)
-    myEvaluator = Evaluator.Evaluator(25000*1000, bids, validationData.getTrainData())
-    myEvaluator.computePerformanceMetrics()
+    myEvaluator = Evaluator.Evaluator()
+    myEvaluator.computePerformanceMetrics(25000*1000, bids, validationData.getDataFrame())
     myEvaluator.printResult()
 
 
@@ -78,18 +78,18 @@ devReader = ipinyouReader.ipinyouReader("../dataset/validation.csv")
 devData = devReader.getTestData()
 
 # Execute Constant Bid Model
-print("== Constant bid model")
+print("============ Constant bid model")
 exeConstantBidModel(validationData=devReader, trainData=None, writeResult2CSV=True)
 
 # Execute Gaussian Random Bid Model
-print("== Gaussian random bid model")
+print("============ Gaussian random bid model")
 exeGaussianRandomBidModel(validationData=devReader, trainData=None, writeResult2CSV=False)
 
 # Execute Uniform Random Bid Model
-print("== Uniform random bid model")
+print("============ Uniform random bid model")
 exeUniformRandomBidModel(validationData=devReader, trainData=None, writeResult2CSV=False)
 
 # Execute LR Bid Model
-print("== Logistic Regression bid model")
-exeLogisticRegressionBidModel(validationData=devReader, trainData=trainReader, writeResult2CSV=False)
+print("============ Logistic Regression bid model")
+exeLogisticRegressionBidModel(validationData=devReader, trainData=trainReader, writeResult2CSV=True)
 
