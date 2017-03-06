@@ -54,10 +54,6 @@ def exeUniformRandomBidModel(validationData, trainData=None, writeResult2CSV=Fal
     myEvaluator.computePerformanceMetricsDF(25000 * 1000, bids, validationData.getDataFrame())
     myEvaluator.printResult()
 
-# # Read in train.csv to train the model
-# trainReader = ipinyouReader.ipinyouReader("../dataset/train.csv")
-#trainData = trainReader.getTrainData()
-
 def exeLogisticRegressionBidModel(validationData=None, trainData=None, writeResult2CSV=False):
     lrBidModel=LogisticRegressionBidModel.LogisticRegressionBidModel(regressionFormulaY='click', regressionFormulaX='weekday + hour + region + city + adexchange +slotwidth + slotheight + slotprice + advertiser',cBudget=25000*1000, avgCTR=0.2)
     print(type(validationData))
