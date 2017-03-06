@@ -37,6 +37,43 @@ class ipinyouReader():
                                            'advertiser',#21
                                            'usertag'])  #22
 
+    def getOneHotData(self,train_cols=[]):
+        """ Return categorical data in one-hot encoding format, remove other columns."""
+
+        ### Create new data frame with columns split for combined columns
+        source_df = self.__dataframe.copy()
+        # useragent split
+        source_df['user_platform'] = source_df.useragent.str.split('_').str.get(0)
+        source_df['user_browser'] = source_df.useragent.str.split('_').str.get(1)
+        # ip split
+        source_df['ip_block'] = source_df.IP.str.split('.').str.get(0)
+
+        ### one hot encoding for relevant columns
+        # simple columns
+        onehot_df = pd.get_dummies(source_df, columns=['weekday', 'hour',  # ])
+                                                       'user_platform', 'user_browser', 'ip_block',
+                                                       'region', 'city', 'adexchange', 'domain',
+                                                       'slotwidth', 'slotheight', 'slotvisibility', 'slotformat',
+                                                       'creative', 'keypage', 'advertiser',
+                                                       ])
+
+        # usertags
+        onehot_df = onehot_df.join(source_df.usertag.astype(str).str.strip('[]').str.get_dummies(','))
+
+        ### Drop these non-categorical data
+        onehot_df.drop(['click', 'bidid', 'logtype', 'userid', 'useragent', 'IP', 'url',
+                        'urlid', 'slotid', 'slotprice', 'bidprice', 'payprice', 'usertag'], axis=1, inplace=True)
+
+        ### get the y values too
+        y_values=source_df[['click','bidprice','payprice']]
+
+        ### if we are using an existing column def (i.e we are processing test/validation data)
+        if len(train_cols) > 0:
+            new_onehot_df = pd.DataFrame(data=onehot_df, columns=train_cols)
+            new_onehot_df.fillna(0,inplace=True) #Fill any NaNs
+            return new_onehot_df, y_values
+        else:
+            return onehot_df,y_values
 
     def getResult(self):
         """ Return data in result format for evaluation. i.e. bidid, bidprice """
