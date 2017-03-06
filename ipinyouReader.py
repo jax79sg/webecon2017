@@ -71,6 +71,7 @@ class ipinyouReaderWithEncoding():
         # print(combined_set.info())
         dict = {}
         # Loop through all columns in the dataframe
+        print("Encoding all features in columns")
         for feature in combined_set.columns:
 
             # Only apply for columns with categorical strings
