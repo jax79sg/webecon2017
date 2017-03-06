@@ -2,7 +2,9 @@
 Web Economics assignment
 
 Some stats on train.csv for reference
+
     Number of records:  2697738
+    Number of records (After removing bid<pay): 2664159
     Number of unique advertiser:  9
     Number of unique userid:  2591064
     Number of unique region:  35
@@ -18,3 +20,7 @@ Some stats on train.csv for reference
     Number of unique slotformat:  4
     Number of unique creative:  130
     Number of unique keypage:  19
+    Number of unique slotwidth:  21
+    Number of unique slotheight:  14
+    Number of unique slotprice:  284
+    Average CTR:  0.000745451003487
