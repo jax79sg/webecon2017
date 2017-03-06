@@ -64,7 +64,7 @@ def exeLogisticRegressionBidModel(validationData=None, trainData=None, writeResu
     if writeResult2CSV:
         ipinyouWriter.ResultWriter().writeResult("LRbidModelresult.csv", bids)
     myEvaluator = Evaluator.Evaluator()
-    myEvaluator.computePerformanceMetrics(25000*1000, bids, validationData.getDataFrame())
+    myEvaluator.computePerformanceMetricsDF(25000*1000, bids, validationData.getDataFrame())
     myEvaluator.printResult()
 
 
