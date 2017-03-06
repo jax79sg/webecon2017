@@ -1,5 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
+import pandas as pd
 import numpy as np
 from Evaluator import Evaluator
 import time
@@ -57,6 +58,8 @@ class ConstantBidModel(BidModelInterface):
         bidprice = np.full(allBidid.shape[0], self.defaultBid, dtype=int)
         bids = np.stack([allBidid, bidprice], axis=1)
 
+        bids = pd.DataFrame(bids, columns=['bidid', 'bidprice'])
+
         return bids
 
     def trainModel(self, allTrainData, searchRange=[1, 300], budget=25000*1000):
@@ -104,7 +107,7 @@ class ConstantBidModel(BidModelInterface):
 
         print("bestBid: ", bestBid)
         print("bestCTR: ", bestCTR)
-        # return a fake default first
+
         self.defaultBid = bestBid
 
         return  self.defaultBid
@@ -115,10 +118,13 @@ class GaussianRandomBidModel(BidModelInterface):
     Perform Random bidding using Gaussian distribution based on mean and stdev of payprice compute from train set
     """
 
-    def getBidPrice(self, oneBidRequest):
+    def getBidPrice(self, allBidid):
         # print("bid: ", oneBidRequest)
-        bid = np.random.normal(loc=80.25102474739948, scale=6)
-        return np.array([oneBidRequest[2], int(bid)])
+        bidprice = np.random.normal(loc=80.25102474739948, scale=6, size=len(allBidid))
+        bids = np.stack([allBidid, bidprice], axis=1)
+        bids = pd.DataFrame(bids, columns=['bidid', 'bidprice'])
+
+        return bids
 
     def trainModel(self, allTrainData):
         raise NotImplementedError
@@ -130,10 +136,13 @@ class UniformRandomBidModel(BidModelInterface):
     def __init__(self,bidupperbound=300):
         self.defaultBidUpperBound = bidupperbound
 
-    def getBidPrice(self, oneBidRequest):
+    def getBidPrice(self, allBidid):
         # print("bid: ", oneBidRequest)
-        bid = np.random.uniform(low=0,high=self.defaultBidUpperBound)
-        return [oneBidRequest[2], int(bid)]
+        bidprice = np.random.uniform(low=0,high=self.defaultBidUpperBound, size=len(allBidid))
+        bids = np.stack([allBidid, bidprice], axis=1)
+        bids = pd.DataFrame(bids, columns=['bidid', 'bidprice'])
+
+        return bids
 
     def trainModel(self, allTrainData):
         raise NotImplementedError
