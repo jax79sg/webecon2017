@@ -3,6 +3,7 @@ import ipinyouWriter
 import Evaluator
 import BidModels
 import numpy as np
+import LogisticRegressionBidModel
 
 
 def exeConstantBidModel(validationData, trainData=None, writeResult2CSV=False):
@@ -45,24 +46,43 @@ def exeUniformRandomBidModel(validationData, trainData=None, writeResult2CSV=Fal
     myEvaluator.computePerformanceMetrics()
     myEvaluator.printResult()
 
-# # Read in train.csv to train the model
+
+def exeLogisticRegressionBidModel(validationData=None, trainData=None, writeResult2CSV=False):
+    lrBidModel=LogisticRegressionBidModel.LogisticRegressionBidModel(regressionFormulaY='click', regressionFormulaX='weekday + hour + region + city + adexchange +slotwidth + slotheight + slotprice + advertiser',cBudget=25000*1000, avgCTR=0.2)
+    print(type(validationData))
+    lrBidModel.trainModel(trainData.getDataFrame(), retrain=True)
+    # lrBidModel.gridSearchandCrossValidate(trainData.getDataFrame())
+
+    bids = lrBidModel.getBidPrice(validationData.getDataFrame())
+    if writeResult2CSV:
+        ipinyouWriter.ResultWriter().writeResult("LRbidModelresult.csv", bids)
+    myEvaluator = Evaluator.Evaluator(25000*1000, bids, validationData.getTrainData())
+    myEvaluator.computePerformanceMetrics()
+    myEvaluator.printResult()
+
+
+
+# Read in train.csv to train the model
 trainReader = ipinyouReader.ipinyouReader("../dataset/train.csv")
-#trainData = trainReader.getTrainData()
+trainData = trainReader.getTrainData()
 
 # Read in Validation.csv for developmental testing
 devReader = ipinyouReader.ipinyouReader("../dataset/validation.csv")
-#devData = devReader.getTestData()
+devData = devReader.getTestData()
 
-# Execute Constant Bid Model
-print("== Constant bid model")
-exeConstantBidModel(validationData=devReader, trainData=None, writeResult2CSV=False)
+# # Execute Constant Bid Model
+# print("== Constant bid model")
+# exeConstantBidModel(validationData=devReader, trainData=None, writeResult2CSV=False)
+#
+# # Execute Gaussian Random Bid Model
+# print("== Gaussian random bid model")
+# exeGaussianRandomBidModel(validationData=devReader, trainData=trainReader, writeResult2CSV=False)
+#
+# # Execute Uniform Random Bid Model
+# print("== Uniform random bid model")
+# exeUniformRandomBidModel(validationData=devReader, trainData=trainReader, writeResult2CSV=False)
 
-# Execute Gaussian Random Bid Model
-print("== Gaussian random bid model")
-exeGaussianRandomBidModel(validationData=devReader, trainData=trainReader, writeResult2CSV=False)
-
-# Execute Uniform Random Bid Model
-print("== Uniform random bid model")
-exeUniformRandomBidModel(validationData=devReader, trainData=trainReader, writeResult2CSV=False)
-
+# Execute LR Bid Model
+print("== Logistic Regression bid model")
+exeLogisticRegressionBidModel(validationData=devReader, trainData=trainReader, writeResult2CSV=False)
 
