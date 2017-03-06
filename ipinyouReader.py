@@ -183,11 +183,6 @@ class ipinyouReaderWithEncoding():
         combined_set.loc[combined_set['slotformat'] == 'Na', 'slotformat'] = 2
         combined_set.slotformat = combined_set.slotformat.astype(int)
 
-        # Useless column that contains only 1 unique value
-        # Remove them to save some memory
-        combined_set.pop('logtype')
-        combined_set.pop('urlid')
-
         combined_set['mobileos'] = np.where(((combined_set['useragent'] == 'android_safari') |
                                    (combined_set['useragent'] == 'android_other') |
                                    (combined_set['useragent'] == 'ios_safari') |
@@ -201,7 +196,18 @@ class ipinyouReaderWithEncoding():
                                    ), 1, 0)
 
         combined_set['slotdimension'] = combined_set['slotwidth'].map(str) + "x" + combined_set['slotheight'].map(str)
+
+        combined_set = pd.concat([combined_set, combined_set.usertag.astype(str).str.strip('[]').str.get_dummies(',').astype(np.int8)], axis=1)
+        combined_set.rename(columns={'null': 'unknownusertag'}, inplace=True)
+
+        # Useless column that contains only 1 unique value
+        # Remove them to save some memory
+        combined_set.pop('logtype')
+        combined_set.pop('urlid')
+        combined_set.pop('usertag')
+
         # print(combined_set.info())
+
         dict = {}
         # Loop through all columns in the dataframe
         for feature in combined_set.columns:
@@ -224,7 +230,6 @@ class ipinyouReaderWithEncoding():
                 combined_set[feature] = pd.Categorical(combined_set[feature]).codes
 
         # print(combined_set.info())
-        #TODO work on user tag
 
         train = combined_set[:traindf.shape[0]]
         validation = combined_set[traindf.shape[0]:(traindf.shape[0]+validationdf.shape[0])]
