@@ -60,7 +60,7 @@ from sklearn.externals import joblib
 
 
 
-isTraining=False
+isTraining=True
 regressionFormulaY='click'
 regressionFormulaX='weekday + hour + region + city + adexchange +slotwidth + slotheight + slotprice + advertiser'
 # trainset="../dataset/trainPruned.csv"
