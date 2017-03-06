@@ -11,24 +11,13 @@
         Fixed - disregard accuracy for now (Means will not use validation data... Will fix/update in next version)
         - Still cannot handle alphabetical variables e.g. useragent .... Will fix/update in next version.
         Fixed - The data has too many click=0, trained model is skewed. To refine train model
+
 2. CTR estimation
     - Estimate click for every record in the test set using the model above
-    - Compute pCTR = sumofclicks/alltestrecords
-    TODO:
-        - Assume all same advertiser for now (Will fix in next version)
+    - Compute pCTR = prob(click=1)
 
 3. Compute bid = base_bid x pCTR/avgCTR
-    - A bit lost here, what's avgCTR ??
-
-"""
-
-import numpy as np
-from patsy import patsy
-from sklearn.linear_model import LogisticRegression
-import ipinyouReader as ipinyouReader
-from ipinyouWriter import ResultWriter as ResultWriter
-from sklearn import metrics
-from sklearn.grid_search import GridSearchCV
+where base_bid assumed budget, avgCTR assumed CTR of training set.
 
 # #List of column names. To be copy and pasted (as needed) in the formula for logistic regression
 # click='click'
@@ -57,6 +46,19 @@ from sklearn.grid_search import GridSearchCV
 # keypage='keypage'
 # advertiser='advertiser'
 # usertag='usertag'
+"""
+
+import numpy as np
+from patsy import patsy
+from sklearn.linear_model import LogisticRegression
+import ipinyouReader as ipinyouReader
+from ipinyouWriter import ResultWriter as ResultWriter
+from sklearn import metrics
+from sklearn.grid_search import GridSearchCV
+from UserException import ModelNotTrainedException
+from sklearn.externals import joblib
+import datetime
+import pandas as pd
 
 from BidModels import BidModelInterface
 
@@ -64,49 +66,116 @@ class LogisticRegressionBidModel(BidModelInterface):
     _regressionFormulaY =''
     _regressionFormulaX =''
     _model=None
+    _cBudget=0
+    _avgCTR=0
 
-    def __init__(self, regressionFormulaY='click', regressionFormulaX='weekday + hour + region + city + adexchange +slotwidth + slotheight + slotprice + advertiser'):
+    def __init__(self, regressionFormulaY='click', regressionFormulaX='weekday + hour + region + city + adexchange +slotwidth + slotheight + slotprice + advertiser',cBudget=25000*1000, avgCTR=0.000754533880574):
         self._regressionFormulaY=regressionFormulaY
         self._regressionFormulaX = regressionFormulaX
-        self.defaultBid = 0
+        self._defaultBid = 0
+        self._cBudget=cBudget
+        self._avgCTR=avgCTR
 
-    def getBidPrice(self, oneBidRequest):
+    def __computeBidPrice(self, pCTR=None):
+        """
+        The default computation to compute bid price
+        The implemented model should have its own ways to gather the necessary parameters as follows
+        :param basebid:Using the budget in this case
+        :param pCTR: Compute the probability that click=1 for that bidrequest
+        :param avgCTR: Consider this as the avgCTR for the training set
+        :return: bid
+        """
+        bid=self._cBudget*(pCTR/self._avgCTR)
+        return bid
+
+    def __predictClickOneProb(self,testDF):
+        """
+        Perform prediction for click label.
+        Take the output of click=1 probability as the CTR.
+        :param oneBidRequest:
+        :return:
+        """
+
         print("Setting up X test for prediction")
-        xTest = patsy.dmatrix(self._regressionFormulaX, oneBidRequest, return_type="dataframe")
+        xTest = patsy.dmatrix(self._regressionFormulaX, testDF, return_type="dataframe")
 
-        # predict click labels for the bid request set
+        # predict click labels for the test set
         print("Predicting test set...")
-        predicted = self._model.predict(xTest)  # 0.5 prob threshold
-        print("Writing to csv")
-        testPredictionWriter = ResultWriter()
-        testPredictionWriter.writeResult(filename="predictTest.csv", data=predicted)
+        predictedClickOneProb = self._model.predict_proba(xTest)
 
-        #Compute the bid price based on prediction outcome
+        return predictedClickOneProb[:,1]
 
 
-        return [oneBidRequest[2], self.defaultBid]
+    def getBidPrice(self, allBidRequest):
+        """
+        1. Predict click=1 prob for entire test/validation set
+            Considered as pCTR for each impression
+        2. Use the bid=base_price*(pCTR/avgCTR) formula
+        :param oneBidRequest:
+        :return:
+        """
 
-    def trainModel(self, allTrainData):
-        print("Setting up Y and X for logistic regression")
-        yTrain, xTrain = patsy.dmatrices(self._regressionFormulaY + ' ~ ' + self._regressionFormulaX, allTrainData, return_type="dataframe")
-        print((xTrain.columns))
-        print("No of features in input matrix: %d" % len(xTrain.columns))
+        if(self._model==None):
+            raise ModelNotTrainedException("Model must be trained prior to prediction!")
 
-        # flatten y into a 1-D array
-        print("Flatten y into 1-D array")
-        yTrain = np.ravel(yTrain)
 
-        # instantiate a logistic regression model, and fit with X and y
+        #Compute the CTR of this BidRequest
+        pCTR=self.__predictClickOneProb(allBidRequest)
+        print("General sensing of pCTR ranges")
+        print(pCTR)
+
+        #Compute the bid price
+        bids = np.apply_along_axis(self.__computeBidPrice, axis=0, arr=pCTR)
+        print("General sensing of bids ranges")
+        print(bids)
+
+        #Extract the corresponding bidid
+        allBidRequestMatrix=allBidRequest.as_matrix(columns=['bidid'])
+
+        #Merging bidid and bids into a table (Needed for eval)
+        bidid_bids=np.column_stack((allBidRequestMatrix, bids))
+
+        return bidid_bids
+
+
+    def trainModel(self, allTrainData, retrain=True):
+        """
+        Train model using Logistic Regression for Click against a set of features
+        Trained model will be saved to disk (No need retrain/reload training data in future if not required during program rerun)
+        :param allTrainData:
+        :param retrain: If False, will load logisticRegressionTrainedModel.pkl instead of training the dataset.
+        :return:
+        """
+        # instantiate a logistic regression model
         self._model = LogisticRegression(C=0.1)
-        print("Training Model...")
-        self._model = self._model.fit(xTrain, yTrain)  # Loss function:liblinear
+        if (retrain):
+            print("Setting up Y and X for logistic regression")
+            print(datetime.datetime.now())
+            yTrain, xTrain = patsy.dmatrices(self._regressionFormulaY + ' ~ ' + self._regressionFormulaX, allTrainData, return_type="dataframe")
+            print("No of features in input matrix: %d" % len(xTrain.columns))
 
-        # check the accuracy on the training set
-        print("\n\nTraining acccuracy: %5.3f" % self._model.score(xTrain, yTrain))
+            # flatten y into a 1-D array
+            print("Flatten y into 1-D array")
+            print(datetime.datetime.now())
+            yTrain = np.ravel(yTrain)
 
 
-    def gridSearchandCrossValidate(self, allTrainData):
+            print("Training Model...")
+            print(datetime.datetime.now())
+
+            self._model = self._model.fit(xTrain, yTrain)  # Loss function:liblinear
+            super(LogisticRegressionBidModel, self).saveModel(self._model,'logisticRegressionTrainedModel.pkl')
+            # check the accuracy on the training set
+            print("\n\nTraining acccuracy: %5.3f" % self._model.score(xTrain, yTrain))
+        else:
+            self._model=super(LogisticRegressionBidModel, self).loadSavedModel('logisticRegressionTrainedModel.pkl')
+
+        print("Training completed")
+        print(datetime.datetime.now())
+
+    def gridSearchandCrossValidate(self, allTrainData, retrain=True):
         print("Setting up Y and X for logistic regression")
+        print(datetime.datetime.now())
         yTrain, xTrain = patsy.dmatrices(self._regressionFormulaY + ' ~ ' + self._regressionFormulaX, allTrainData,
                                          return_type="dataframe")
         print((xTrain.columns))
@@ -114,6 +183,7 @@ class LogisticRegressionBidModel(BidModelInterface):
 
         # flatten y into a 1-D array
         print("Flatten y into 1-D array")
+        print(datetime.datetime.now())
         yTrain = np.ravel(yTrain)
 
         # LogisticRegression(penalty='l2',
@@ -155,7 +225,15 @@ class LogisticRegressionBidModel(BidModelInterface):
                                      cv=5,
                                      n_jobs=-1,
                                      error_score='raise')
-        self._model = optimized_LR.fit(xTrain, yTrain)
+        print("Training model..")
+        print(datetime.datetime.now())
+        if(retrain):
+            self._model = optimized_LR.fit(xTrain, yTrain)
+            super(LogisticRegressionBidModel, self).saveModel(self._model, 'logisticRegressionTrainedModel.pkl')
+        else:
+            self._model = super(LogisticRegressionBidModel, self).loadSavedModel('logisticRegressionTrainedModel.pkl')
+        print("Training complete")
+        print(datetime.datetime.now())
 
         scores = optimized_LR.grid_scores_
         # print(type(scores))
@@ -182,8 +260,8 @@ class LogisticRegressionBidModel(BidModelInterface):
 if __name__ == "__main__":
     # load datasets
     print("Reading dataset...")
-    trainset = "../dataset/train_cleaned_prune.csv"
-    validationset = "../dataset/validation_cleaned_prune.csv"
+    trainset = "../dataset/train.csv"
+    validationset = "../dataset/validation.csv"
     testset = "../dataset/test.csv"
     # trainDF = ipinyouReader.ipinyouReader(trainset).getDataFrame()
     reader_encoded = ipinyouReader.ipinyouReaderWithEncoding()
