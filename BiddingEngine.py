@@ -6,13 +6,14 @@ import numpy as np
 import LogisticRegressionBidModel
 
 
-def exeConstantBidModel(validationData, trainData=None, writeResult2CSV=False):
+def exeConstantBidModel(validationData, trainData=None, train=False, writeResult2CSV=False):
     # Constant Bidding Model
     constantBidModel = BidModels.ConstantBidModel()
-    if trainData != None:
-        constantBidModel.trainModel(trainData.getTrainData(), searchRange=[1, 500], budget=int(25000*1000*8.88))
 
-    bids = constantBidModel.getBidPrice(validationData.getDataFrame().bidid)
+    if train:
+        constantBidModel.trainModel(trainData, searchRange=[1, 400], budget=int(25000*1000*8.88))
+
+    bids = constantBidModel.getBidPrice(validationData.bidid)
     # bids = np.apply_along_axis(constantBidModel.getBidPrice, axis=1, arr=validationData.getTestData())
 
     if writeResult2CSV:
@@ -20,7 +21,7 @@ def exeConstantBidModel(validationData, trainData=None, writeResult2CSV=False):
     # myEvaluator = Evaluator.Evaluator(25000*1000, bids, validationData.getTrainData())
     # myEvaluator.computePerformanceMetrics()
     myEvaluator = Evaluator.Evaluator()
-    myEvaluator.computePerformanceMetricsDF(25000 * 1000, bids, validationData.getDataFrame())
+    myEvaluator.computePerformanceMetricsDF(25000 * 1000, bids, validationData)
     myEvaluator.printResult()
 
 def exeGaussianRandomBidModel(validationData, trainData=None, writeResult2CSV=False):
@@ -78,6 +79,8 @@ def exeLogisticRegressionBidModel(validationData=None, trainData=None, writeResu
 
 
 # Read in train.csv to train the model
+# trainset = "../dataset/debug.csv"
+# validationset = "../dataset/debug.csv"
 trainset = "../dataset/train_cleaned_prune.csv"
 validationset = "../dataset/validation_cleaned_prune.csv"
 testset = "../dataset/test.csv"
@@ -87,9 +90,9 @@ reader_encoded = ipinyouReader.ipinyouReaderWithEncoding()
 trainDF, validateDF, testDF = reader_encoded.getTrainValidationTestDF_V2(trainset, validationset, testset)
 
 # TODO Make Constant model take in DF
-# # Execute Constant Bid Model
-# print("== Constant bid model")
-# exeConstantBidModel(validationData=devReader, trainData=None, writeResult2CSV=True)
+# Execute Constant Bid Model
+print("== Constant bid model")
+exeConstantBidModel(validationData=validateDF, trainData=trainDF, train=True, writeResult2CSV=True)
 
 # Execute Gaussian Random Bid Model
 print("== Gaussian random bid model")
