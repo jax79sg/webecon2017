@@ -64,9 +64,7 @@ def exeLogisticRegressionBidModel(validationData=None, trainData=None, writeResu
     for i in range(1, len(X_column)):
         final_x = final_x + ' + ' + X_column[i]
 
-    lrBidModel = LinearBidModel.LinearBidModel(regressionFormulaY='click',
-                                               regressionFormulaX=final_x,
-                                               cBudget=272.412385 * 1000, avgCTR=0.2, modelType='logisticregression')
+    lrBidModel = LinearBidModel.LinearBidModel(regressionFormulaY='click', regressionFormulaX=final_x, cBudget=272.412385 * 1000, avgCTR=0.2, modelType='logisticregression')
     print(type(validationData))
     lrBidModel.trainModel(trainData, retrain=True, modelFile="LogisticRegression.pkl")
     # lrBidModel.gridSearchandCrossValidate(trainData.getDataFrame())
@@ -81,12 +79,14 @@ def exeLogisticRegressionBidModel(validationData=None, trainData=None, writeResu
 def exeSGDBidModel(validationData=None, trainData=None, writeResult2CSV=False):
     # Get regressionFormulaX
     X_column = list(trainData)
+    print("X_column:",X_column)
     unwanted_Column = ['click', 'bidid', 'bidprice', 'payprice', 'userid', 'IP', 'url', 'creative', 'keypage']
     [X_column.remove(i) for i in unwanted_Column]
     final_x = X_column[0]
     for i in range(1, len(X_column)):
         final_x = final_x + ' + ' + X_column[i]
 
+    print("regressionFormulaX:", final_x)
     lrBidModel=LinearBidModel.LinearBidModel(regressionFormulaY='click', regressionFormulaX=final_x, cBudget=272.412385 * 1000, avgCTR=0.2, modelType='sgdclassifier')
     print(type(validationData))
     lrBidModel.trainModel(trainData, retrain=True, modelFile="SGDClassifier.pkl")
