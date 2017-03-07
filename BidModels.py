@@ -76,8 +76,8 @@ class ConstantBidModel(BidModelInterface):
         :return: The best constant bid price that obtained the highest CTR
 
         """
-        goldlabel = np.copy(allTrainData)
-        goldlabel = np.delete(goldlabel, [0, 21, 22], axis=1)# remove 'click','bidprice','payprice'
+        # goldlabel = np.copy(allTrainData)
+        # goldlabel = np.delete(goldlabel, [0, 21, 22], axis=1)# remove 'click','bidprice','payprice'
 
         bestBid = 0
         bestCTR = 0
@@ -86,10 +86,12 @@ class ConstantBidModel(BidModelInterface):
         # for bid in range(1000, 1001):  # To test cutting back budget
             self.defaultBid = bid
             # start_time = time.time()
-            bids = self.getBidPrice(allTrainData[:,3])
+            bids = self.getBidPrice(allTrainData.bidid)
             # print('Metrics np.apply_along_axis time: {} seconds'.format(round(time.time() - start_time, 2)))
-            myEvaluator = Evaluator(budget, bids, allTrainData)
-            resultDict = myEvaluator.computePerformanceMetrics()
+            # myEvaluator = Evaluator(budget, bids, allTrainData)
+            myEvaluator = Evaluator()
+            resultDict = myEvaluator.computePerformanceMetricsDF(budget, bids, allTrainData)
+
             if resultDict['won'] != 0:
                 print("Constant bid: {} CTR: {}".format(self.defaultBid, resultDict['click'] / resultDict['won']))
             else:

@@ -68,7 +68,7 @@ class Evaluator():
     #     print('Metrics compute time: {} seconds'.format(round(time.time() - start_time, 2)))
     #     return self.resultDict
 
-    def computePerformanceMetricsDF(self, budget, ourBidsDF, goldlabelsDF):
+    def computePerformanceMetricsDF(self, budget, ourBidsDF, goldlabelsDF,verbose=False):
 
         self.resultDict = defaultdict(float)
 
@@ -76,21 +76,25 @@ class Evaluator():
         bidids_match=np.all(np.equal(ourBidsDF.bidid, goldlabelsDF['bidid'])) #safety check bidids match
         if bidids_match:
             #if bid price is greater than (or eq) gold's payprice - TA said it's greater or eq to payprice = win
-            wonbid=np.greater_equal(ourBidsDF.bidprice.astype(int), goldlabelsDF['payprice'])
+            wonbid=np.greater_equal(ourBidsDF['bidprice'].astype(int), goldlabelsDF['payprice'])
             wonbidIndex = np.where(wonbid)
             spend = goldlabelsDF['payprice'].iloc[wonbidIndex]
             clicks = goldlabelsDF.click.iloc[wonbidIndex]
 
-            #work backwards until we are within budget
-            i=-1
-            while sum(spend) > budget:
-                #print("{},{},{}".format(i,sum(spend),self.budget))
-                spend[i] = 0
-                clicks[i] = 0
-                wonbid[i] = False
-                i+=-1
+            # work backwards until we are within budget
+            i = -1
+            overspend = sum(spend) - budget
+            while overspend > 0 and len(spend) + i > 0:
+                if verbose:
+                    print("{},{},{}".format(i, sum(spend), budget))
+                overspend += -spend.iloc[i]
+                spend.iloc[i] = 0
+                clicks.iloc[i] = 0
+                wonbid.iloc[i] = False
+                i += -1
 
-            self.resultDict={'won':sum(wonbid),'click':sum(clicks),'spend':sum(spend)}
+
+            self.resultDict={'won':sum(wonbid),'click':sum(clicks),'spend':sum(spend),'trimmed_bids':-i-1}
         else:
             print("Bid Ids did not match in arrays")
 
@@ -98,6 +102,7 @@ class Evaluator():
         return self.resultDict
 
     def printResult(self):
+        print("Trimmed Bids:",self.resultDict['trimmed_bids'])
         print("Won: ", self.resultDict['won'])
         print("Click: ", self.resultDict['click'])
         if self.resultDict['won'] != 0:

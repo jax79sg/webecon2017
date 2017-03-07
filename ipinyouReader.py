@@ -59,7 +59,7 @@ class ipinyouReader():
                                                        ])
 
         # usertags
-        onehot_df = onehot_df.join(source_df.usertag.astype(str).str.strip('[]').str.get_dummies(','))
+        onehot_df = onehot_df.join(source_df.usertag.astype(str).str.strip('[]').str.get_dummies(',').astype(np.uint8))
 
         ### Drop these non-categorical data
         onehot_df.drop(['click', 'bidid', 'logtype', 'userid', 'useragent', 'IP', 'url',
@@ -200,6 +200,14 @@ class ipinyouReaderWithEncoding():
         combined_set = pd.concat([combined_set, combined_set.usertag.astype(str).str.strip('[]').str.get_dummies(',').astype(np.int8)], axis=1)
         combined_set.rename(columns={'null': 'unknownusertag'}, inplace=True)
 
+        # Appended X to all column name with digit only for patsy
+        updatedName = {}
+        for i in list(combined_set):
+            if i.isdigit():
+                updatedName[i] = 'X' + i
+
+        combined_set.rename(columns=updatedName, inplace=True)
+
         # Useless column that contains only 1 unique value
         # Remove them to save some memory
         combined_set.pop('logtype')
@@ -208,7 +216,6 @@ class ipinyouReaderWithEncoding():
 
         # print(combined_set.info())
 
-        dict = {}
         # Loop through all columns in the dataframe
         for feature in combined_set.columns:
 
@@ -239,7 +246,7 @@ class ipinyouReaderWithEncoding():
         print("Length of Validation: ", validation.shape[0])
         print("Length of Test: ", test.shape[0])
 
-        return train, validation, test, dict
+        return train, validation, test
 
         # print("dict", dict)
 

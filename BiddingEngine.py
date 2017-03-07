@@ -6,13 +6,14 @@ import numpy as np
 import LinearBidModel
 
 
-def exeConstantBidModel(validationData, trainData=None, writeResult2CSV=False):
+def exeConstantBidModel(validationData, trainData=None, train=False, writeResult2CSV=False):
     # Constant Bidding Model
     constantBidModel = BidModels.ConstantBidModel()
-    if trainData != None:
-        constantBidModel.trainModel(trainData.getTrainData(), searchRange=[1, 500], budget=int(25000*1000*8.88))
 
-    bids = constantBidModel.getBidPrice(validationData.getDataFrame().bidid)
+    if train:
+        constantBidModel.trainModel(trainData, searchRange=[1, 400], budget=int(25000*1000*8.88))
+
+    bids = constantBidModel.getBidPrice(validationData.bidid)
     # bids = np.apply_along_axis(constantBidModel.getBidPrice, axis=1, arr=validationData.getTestData())
 
     if writeResult2CSV:
@@ -20,14 +21,14 @@ def exeConstantBidModel(validationData, trainData=None, writeResult2CSV=False):
     # myEvaluator = Evaluator.Evaluator(25000*1000, bids, validationData.getTrainData())
     # myEvaluator.computePerformanceMetrics()
     myEvaluator = Evaluator.Evaluator()
-    myEvaluator.computePerformanceMetricsDF(25000 * 1000, bids, validationData.getDataFrame())
+    myEvaluator.computePerformanceMetricsDF(25000 * 1000, bids, validationData)
     myEvaluator.printResult()
 
 def exeGaussianRandomBidModel(validationData, trainData=None, writeResult2CSV=False):
     # gaussian random Bidding Model
     randomBidModel = BidModels.GaussianRandomBidModel()
 
-    bids = randomBidModel.getBidPrice(validationData.getDataFrame().bidid)
+    bids = randomBidModel.getBidPrice(validationData.bidid)
     # bids = np.apply_along_axis(randomBidModel.getBidPrice, axis=1, arr=validationData.getTestData())
 
     if writeResult2CSV:
@@ -35,7 +36,7 @@ def exeGaussianRandomBidModel(validationData, trainData=None, writeResult2CSV=Fa
     # myEvaluator = Evaluator.Evaluator(25000*1000, bids, validationData.getTrainData())
     # myEvaluator.computePerformanceMetrics()
     myEvaluator = Evaluator.Evaluator()
-    myEvaluator.computePerformanceMetricsDF(25000 * 1000, bids, validationData.getDataFrame())
+    myEvaluator.computePerformanceMetricsDF(25000 * 1000, bids, validationData)
     myEvaluator.printResult()
 
 def exeUniformRandomBidModel(validationData, trainData=None, writeResult2CSV=False):
@@ -43,7 +44,7 @@ def exeUniformRandomBidModel(validationData, trainData=None, writeResult2CSV=Fal
     randomBidModel = BidModels.UniformRandomBidModel(300) #upper bound for random bidding range
     # TODO: could train this too in a range.
 
-    bids = randomBidModel.getBidPrice(validationData.getDataFrame().bidid)
+    bids = randomBidModel.getBidPrice(validationData.bidid)
     # bids = np.apply_along_axis(randomBidModel.getBidPrice, axis=1, arr=validationData.getTestData())
 
     if writeResult2CSV:
@@ -51,7 +52,7 @@ def exeUniformRandomBidModel(validationData, trainData=None, writeResult2CSV=Fal
     # myEvaluator = Evaluator.Evaluator(25000*1000, bids, validationData.getTrainData())
     # myEvaluator.computePerformanceMetrics()
     myEvaluator = Evaluator.Evaluator()
-    myEvaluator.computePerformanceMetricsDF(25000 * 1000, bids, validationData.getDataFrame())
+    myEvaluator.computePerformanceMetricsDF(25000 * 1000, bids, validationData)
     myEvaluator.printResult()
 
 def exeLogisticRegressionBidModel(validationData=None, trainData=None, writeResult2CSV=False):
@@ -93,30 +94,32 @@ def exeSGDBidModel(validationData=None, trainData=None, writeResult2CSV=False):
 
 
 # Read in train.csv to train the model
-trainReader = ipinyouReader.ipinyouReader("../dataset/train.csv")
-trainData = trainReader.getTrainData()
+# trainset = "../dataset/debug.csv"
+# validationset = "../dataset/debug.csv"
+trainset = "../dataset/train_cleaned_prune.csv"
+validationset = "../dataset/validation_cleaned_prune.csv"
+testset = "../dataset/test.csv"
 
-# Read in Validation.csv for developmental testing
-devReader = ipinyouReader.ipinyouReader("../dataset/validation.csv")
-devData = devReader.getTestData()
+print("Reading dataset...")
+reader_encoded = ipinyouReader.ipinyouReaderWithEncoding()
+trainDF, validateDF, testDF = reader_encoded.getTrainValidationTestDF_V2(trainset, validationset, testset)
 
-# # Execute Constant Bid Model
-# print("== Constant bid model")
-# exeConstantBidModel(validationData=devReader, trainData=None, writeResult2CSV=True)
-#
-# # Execute Gaussian Random Bid Model
-# print("== Gaussian random bid model")
-# exeGaussianRandomBidModel(validationData=devReader, trainData=None, writeResult2CSV=False)
-#
-# # Execute Uniform Random Bid Model
-# print("== Uniform random bid model")
-# exeUniformRandomBidModel(validationData=devReader, trainData=None, writeResult2CSV=False)
-#
-# # Execute LR Bid Model
-# print("============ Logistic Regression bid model")
-# exeLogisticRegressionBidModel(validationData=devReader, trainData=trainReader, writeResult2CSV=True)
+# TODO Make Constant model take in DF
+# Execute Constant Bid Model
+print("== Constant bid model")
+exeConstantBidModel(validationData=validateDF, trainData=trainDF, train=True, writeResult2CSV=True)
 
+# Execute Gaussian Random Bid Model
+print("== Gaussian random bid model")
+exeGaussianRandomBidModel(validationData=validateDF, trainData=None, writeResult2CSV=False)
 
+# Execute Uniform Random Bid Model
+print("== Uniform random bid model")
+exeUniformRandomBidModel(validationData=validateDF, trainData=None, writeResult2CSV=False)
+
+# Execute LR Bid Model
+print("============ Logistic Regression bid model")
+exeLogisticRegressionBidModel(validationData=validateDF, trainData=trainDF, writeResult2CSV=True)
 # Execute SDG Bid Model
 print("============ SGD bid model")
 exeSGDBidModel(validationData=devReader, trainData=trainReader, writeResult2CSV=True)
