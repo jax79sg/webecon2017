@@ -22,3 +22,14 @@ devOneHotData,devY = devReader.getOneHotData(train_cols=trainOneHotData.columns.
 
 print(len(trainOneHotData.columns))
 print(len(devOneHotData.columns))
+
+
+X_train = trainOneHotData.as_matrix()
+Y_train = trainY.as_matrix()
+X_val = devOneHotData.as_matrix()
+Y_val = devY.as_matrix()
+
+print(X_train.shape)
+print(Y_train.shape)
+print(X_val.shape)
+print(Y_val.shape)

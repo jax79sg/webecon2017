@@ -59,7 +59,7 @@ class ipinyouReader():
                                                        ])
 
         # usertags
-        onehot_df = onehot_df.join(source_df.usertag.astype(str).str.strip('[]').str.get_dummies(','))
+        onehot_df = onehot_df.join(source_df.usertag.astype(str).str.strip('[]').str.get_dummies(',').astype(np.uint8))
 
         ### Drop these non-categorical data
         onehot_df.drop(['click', 'bidid', 'logtype', 'userid', 'useragent', 'IP', 'url',
