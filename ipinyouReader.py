@@ -200,6 +200,14 @@ class ipinyouReaderWithEncoding():
         combined_set = pd.concat([combined_set, combined_set.usertag.astype(str).str.strip('[]').str.get_dummies(',').astype(np.int8)], axis=1)
         combined_set.rename(columns={'null': 'unknownusertag'}, inplace=True)
 
+        # Appended X to all column name with digit only for patsy
+        updatedName = {}
+        for i in list(combined_set):
+            if i.isdigit():
+                updatedName[i] = 'X' + i
+
+        combined_set.rename(columns=updatedName, inplace=True)
+
         # Useless column that contains only 1 unique value
         # Remove them to save some memory
         combined_set.pop('logtype')
