@@ -135,7 +135,8 @@ class LogisticRegressionBidModel(BidModelInterface):
         #Merging bidid and bids into a table (Needed for eval)
         bidid_bids=np.column_stack((allBidRequestMatrix, bids))
 
-        return bidid_bids
+        bids = pd.DataFrame(bidid_bids, columns=['bidid', 'bidprice'])
+        return bids
 
 
     def trainModel(self, allTrainData, retrain=True):
@@ -257,20 +258,20 @@ class LogisticRegressionBidModel(BidModelInterface):
             print("Error: No model was trained in this instance....")
 
 
-if __name__ == "__main__":
-    # load datasets
-    print("Reading dataset...")
-    trainset = "../dataset/train.csv"
-    validationset = "../dataset/validation.csv"
-    testset = "../dataset/test.csv"
-    # trainDF = ipinyouReader.ipinyouReader(trainset).getDataFrame()
-    reader_encoded = ipinyouReader.ipinyouReaderWithEncoding()
-    trainDF, validateDF, testDF, lookupDict = reader_encoded.getTrainValidationTestDD(trainset, validationset, testset)
-    print("Training dataset...")
-    lrBidModel=LogisticRegressionBidModel()
-    lrBidModel.gridSearchandCrossValidate(trainDF)
-    lrBidModel.trainModel(trainDF)
-    # print("trainDF.info(): ", trainDF.info())
+# if __name__ == "__main__":
+#     # load datasets
+#     print("Reading dataset...")
+#     trainset = "../dataset/train.csv"
+#     validationset = "../dataset/validation.csv"
+#     testset = "../dataset/test.csv"
+#     # trainDF = ipinyouReader.ipinyouReader(trainset).getDataFrame()
+#     reader_encoded = ipinyouReader.ipinyouReaderWithEncoding()
+#     trainDF, validateDF, testDF, lookupDict = reader_encoded.getTrainValidationTestDD(trainset, validationset, testset)
+#     print("Training dataset...")
+#     lrBidModel=LogisticRegressionBidModel()
+#     lrBidModel.gridSearchandCrossValidate(trainDF)
+#     lrBidModel.trainModel(trainDF)
+#     # print("trainDF.info(): ", trainDF.info())
 
 
 
