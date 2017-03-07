@@ -166,9 +166,12 @@ class LinearBidModel(BidModelInterface):
             self._model = LogisticRegression(C=0.1)
         elif (self._modelType=='sgdclassifier'):
             print("SGD classifier will be used for training")
-            self._model = SGDClassifier(alpha=0.0001, average=False, class_weight=None, epsilon=0.1,
-        eta0=0.0, fit_intercept=True, l1_ratio=0.15,
-        learning_rate='optimal', loss='log', n_iter=100, n_jobs=1,
+            #alpha=0.01 (big) to make sure the learning rate is bigger as well when using learning_rate='optimal'.
+            #loss='log', to get probabilitic estimate
+
+            self._model = SGDClassifier(alpha=0.01, average=False, class_weight=None, epsilon=0.1,
+        eta0=10, fit_intercept=True, l1_ratio=0.15,
+        learning_rate='optimal', loss='log', n_iter=100000, n_jobs=-1,
         penalty='l2', power_t=0.5, random_state=None, shuffle=True,
         verbose=1, warm_start=False)
         else:
