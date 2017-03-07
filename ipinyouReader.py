@@ -208,7 +208,6 @@ class ipinyouReaderWithEncoding():
 
         # print(combined_set.info())
 
-        dict = {}
         # Loop through all columns in the dataframe
         for feature in combined_set.columns:
 
@@ -239,7 +238,7 @@ class ipinyouReaderWithEncoding():
         print("Length of Validation: ", validation.shape[0])
         print("Length of Test: ", test.shape[0])
 
-        return train, validation, test, dict
+        return train, validation, test
 
         # print("dict", dict)
 
