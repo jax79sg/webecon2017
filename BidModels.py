@@ -23,7 +23,7 @@ class BidModelInterface():
         :return:
         """
         print("Dumping trained model to file: ", filename)
-        joblib.dump(self._model, 'logisticRegressionTrainedModel.pkl')
+        joblib.dump(self._model, filename)
 
     def loadSavedModel(self, filename):
         """
