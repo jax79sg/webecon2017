@@ -68,27 +68,35 @@ def exeLogisticRegressionBidModel(validationData=None, trainData=None, writeResu
                                                regressionFormulaX=final_x,
                                                cBudget=272.412385 * 1000, avgCTR=0.2, modelType='logisticregression')
     print(type(validationData))
-    lrBidModel.trainModel(trainData.getDataFrame(), retrain=True, modelFile="LogisticRegression.pkl")
+    lrBidModel.trainModel(trainData, retrain=True, modelFile="LogisticRegression.pkl")
     # lrBidModel.gridSearchandCrossValidate(trainData.getDataFrame())
 
-    bids = lrBidModel.getBidPrice(validationData.getDataFrame())
+    bids = lrBidModel.getBidPrice(validationData)
     if writeResult2CSV:
         ipinyouWriter.ResultWriter().writeResult("LRbidModelresult.csv", bids)
     myEvaluator = Evaluator.Evaluator()
-    myEvaluator.computePerformanceMetricsDF(25000*1000, bids, validationData.getDataFrame())
+    myEvaluator.computePerformanceMetricsDF(25000*1000, bids, validationData)
     myEvaluator.printResult()
 
 def exeSGDBidModel(validationData=None, trainData=None, writeResult2CSV=False):
-    lrBidModel=LinearBidModel.LinearBidModel(regressionFormulaY='click', regressionFormulaX='weekday + hour + region + city + adexchange +slotwidth + slotheight + slotprice + advertiser', cBudget=272.412385 * 1000, avgCTR=0.2, modelType='sgdclassifier')
+    # Get regressionFormulaX
+    X_column = list(trainData)
+    unwanted_Column = ['click', 'bidid', 'bidprice', 'payprice', 'userid', 'IP', 'url', 'creative', 'keypage']
+    [X_column.remove(i) for i in unwanted_Column]
+    final_x = X_column[0]
+    for i in range(1, len(X_column)):
+        final_x = final_x + ' + ' + X_column[i]
+
+    lrBidModel=LinearBidModel.LinearBidModel(regressionFormulaY='click', regressionFormulaX=final_x, cBudget=272.412385 * 1000, avgCTR=0.2, modelType='sgdclassifier')
     print(type(validationData))
-    lrBidModel.trainModel(trainData.getDataFrame(), retrain=True, modelFile="SGDClassifier.pkl")
+    lrBidModel.trainModel(trainData, retrain=True, modelFile="SGDClassifier.pkl")
     # lrBidModel.gridSearchandCrossValidate(trainData.getDataFrame())
 
-    bids = lrBidModel.getBidPrice(validationData.getDataFrame())
+    bids = lrBidModel.getBidPrice(validationData)
     if writeResult2CSV:
         ipinyouWriter.ResultWriter().writeResult("SGDbidModelresult.csv", bids)
     myEvaluator = Evaluator.Evaluator()
-    myEvaluator.computePerformanceMetricsDF(25000*1000, bids, validationData.getDataFrame())
+    myEvaluator.computePerformanceMetricsDF(25000*1000, bids, validationData)
     myEvaluator.printResult()
 
 
@@ -120,8 +128,7 @@ exeUniformRandomBidModel(validationData=validateDF, trainData=None, writeResult2
 # Execute LR Bid Model
 print("============ Logistic Regression bid model")
 exeLogisticRegressionBidModel(validationData=validateDF, trainData=trainDF, writeResult2CSV=True)
+
 # Execute SDG Bid Model
 print("============ SGD bid model")
-exeSGDBidModel(validationData=devReader, trainData=trainReader, writeResult2CSV=True)
-
-
+exeSGDBidModel(validationData=validateDF, trainData=trainDF, writeResult2CSV=True)
