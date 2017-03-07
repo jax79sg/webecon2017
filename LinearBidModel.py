@@ -51,6 +51,7 @@ where base_bid assumed budget, avgCTR assumed CTR of training set.
 import numpy as np
 from patsy import patsy
 from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import SGDClassifier
 import ipinyouReader as ipinyouReader
 from ipinyouWriter import ResultWriter as ResultWriter
 from sklearn import metrics
@@ -62,19 +63,30 @@ import pandas as pd
 
 from BidModels import BidModelInterface
 
-class LogisticRegressionBidModel(BidModelInterface):
+class LinearBidModel(BidModelInterface):
     _regressionFormulaY =''
     _regressionFormulaX =''
     _model=None
     _cBudget=0
     _avgCTR=0
+    _modelType=None
 
-    def __init__(self, regressionFormulaY='click', regressionFormulaX='weekday + hour + region + city + adexchange +slotwidth + slotheight + slotprice + advertiser',cBudget=25000*1000, avgCTR=0.000754533880574):
+
+    def __init__(self, regressionFormulaY='click', regressionFormulaX='weekday + hour + region + city + adexchange +slotwidth + slotheight + slotprice + advertiser',cBudget=25000*1000, avgCTR=0.000754533880574, modelType="logisticregression"):
+        """
+
+        :param regressionFormulaY:
+        :param regressionFormulaX:
+        :param cBudget:
+        :param avgCTR:
+        :param modelType: Options ['logisticregression', 'sgdclassifier']
+        """
         self._regressionFormulaY=regressionFormulaY
         self._regressionFormulaX = regressionFormulaX
         self._defaultBid = 0
         self._cBudget=cBudget
         self._avgCTR=avgCTR
+        self._modelType=modelType
 
     def __computeBidPrice(self, pCTR=None):
         """
@@ -139,16 +151,31 @@ class LogisticRegressionBidModel(BidModelInterface):
         return bids
 
 
-    def trainModel(self, allTrainData, retrain=True):
+    def trainModel(self, allTrainData, retrain=True, modelFile=None):
         """
         Train model using Logistic Regression for Click against a set of features
         Trained model will be saved to disk (No need retrain/reload training data in future if not required during program rerun)
         :param allTrainData:
-        :param retrain: If False, will load logisticRegressionTrainedModel.pkl instead of training the dataset.
+        :param retrain: If False, will load self._modelFile instead of training the dataset.
         :return:
         """
+        self._modelFile=modelFile
         # instantiate a logistic regression model
-        self._model = LogisticRegression(C=0.1)
+        if(self._modelType=='logisticregression'):
+            print("Logistic Regression will be used for training")
+            self._model = LogisticRegression(C=0.1)
+        elif (self._modelType=='sgdclassifier'):
+            print("SGD classifier will be used for training")
+            self._model = SGDClassifier(alpha=0.0001, average=False, class_weight=None, epsilon=0.1,
+        eta0=0.0, fit_intercept=True, l1_ratio=0.15,
+        learning_rate='optimal', loss='log', n_iter=100, n_jobs=1,
+        penalty='l2', power_t=0.5, random_state=None, shuffle=True,
+        verbose=1, warm_start=False)
+        else:
+            print("Unrecognised modelType: Logistic Regression defaulted training")
+            self._model = LogisticRegression()
+
+
         if (retrain):
             print("Setting up Y and X for logistic regression")
             print(datetime.datetime.now())
@@ -165,11 +192,11 @@ class LogisticRegressionBidModel(BidModelInterface):
             print(datetime.datetime.now())
 
             self._model = self._model.fit(xTrain, yTrain)  # Loss function:liblinear
-            super(LogisticRegressionBidModel, self).saveModel(self._model,'logisticRegressionTrainedModel.pkl')
+            super(LinearBidModel, self).saveModel(self._model, self._modelFile)
             # check the accuracy on the training set
             print("\n\nTraining acccuracy: %5.3f" % self._model.score(xTrain, yTrain))
         else:
-            self._model=super(LogisticRegressionBidModel, self).loadSavedModel('logisticRegressionTrainedModel.pkl')
+            self._model=super(LinearBidModel, self).loadSavedModel(self._modelFile)
 
         print("Training completed")
         print(datetime.datetime.now())
@@ -230,9 +257,9 @@ class LogisticRegressionBidModel(BidModelInterface):
         print(datetime.datetime.now())
         if(retrain):
             self._model = optimized_LR.fit(xTrain, yTrain)
-            super(LogisticRegressionBidModel, self).saveModel(self._model, 'logisticRegressionTrainedModel.pkl')
+            super(LinearBidModel, self).saveModel(self._model, self._modelFile)
         else:
-            self._model = super(LogisticRegressionBidModel, self).loadSavedModel('logisticRegressionTrainedModel.pkl')
+            self._model = super(LinearBidModel, self).loadSavedModel(self._modelFile)
         print("Training complete")
         print(datetime.datetime.now())
 
