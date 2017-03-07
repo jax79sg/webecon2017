@@ -29,6 +29,7 @@ import ipinyouReader as ipinyouReader
 from ipinyouWriter import ResultWriter as ResultWriter
 from sklearn import metrics
 from sklearn.externals import joblib
+from Evaluator import ClickEvaluator
 
 # #List of column names. To be copy and pasted (as needed) in the formula for logistic regression
 # click='click'
@@ -63,10 +64,10 @@ from sklearn.externals import joblib
 isTraining=True
 regressionFormulaY='click'
 regressionFormulaX='weekday + hour + region + city + adexchange +slotwidth + slotheight + slotprice + advertiser'
-# trainset="../dataset/trainPruned.csv"
-trainset="../dataset/train.csv"
-# validationset="../dataset/validationPruned.csv"
-validationset="../dataset/validation.csv"
+trainset="../dataset/train_cleaned_prune.csv"
+# trainset="../dataset/train.csv"
+validationset="../dataset/validation_cleaned_prune.csv"
+# validationset="../dataset/validation.csv"
 testset="../dataset/test.csv"
 
 
@@ -78,11 +79,22 @@ testset="../dataset/test.csv"
 print("Reading dataset...")
 # trainDF = ipinyouReader.ipinyouReader(trainset).getDataFrame()
 reader_encoded = ipinyouReader.ipinyouReaderWithEncoding()
-trainDF, validateDF, testDF, lookupDict = reader_encoded.getTrainValidationTestDD(trainset, validationset, testset)
+# trainDF, validateDF, testDF, lookupDict = reader_encoded.getTrainValidationTestDD(trainset, validationset, testset)
+trainDF, validateDF, testDF = reader_encoded.getTrainValidationTestDF_V2(trainset, validationset, testset)
 # print("trainDF.info(): ", trainDF.info())
 
+# Get regressionFormulaX
+X_column = list(trainDF)
+unwanted_Column = ['click', 'bidid', 'bidprice', 'payprice', 'userid', 'IP', 'url', 'creative', 'keypage']
+[X_column.remove(i) for i in unwanted_Column]
+final_x = X_column[0]
+for i in range(1, len(X_column)):
+    final_x = final_x + ' + ' + X_column[i]
+
+regressionFormulaX = final_x
+
 print("Setting up Y and X for logistic regression")
-yTrain, xTrain =patsy.dmatrices(regressionFormulaY + ' ~ ' + regressionFormulaX,trainDF, return_type="dataframe")
+yTrain, xTrain =patsy.dmatrices(regressionFormulaY + ' ~ ' + regressionFormulaX, trainDF, return_type="dataframe")
 print((xTrain.columns))
 print ("No of features in input matrix: %d" % len(xTrain.columns))
 
@@ -120,6 +132,8 @@ print("Predicting validation set...")
 
 predicted = model.predict(xValidate) #0.5 prob threshold
 predicted_prob=print(model.predict_proba(xValidate))
+ClickEvaluator().printClickPredictionScore(predicted, yValidate)
+
 print("Writing to csv")
 valPredictionWriter=ResultWriter()
 valPredictionWriter.writeResult(filename="predictProbValidate.csv", data=predicted_prob)
