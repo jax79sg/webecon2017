@@ -4,6 +4,8 @@ import Evaluator
 import BidModels
 import numpy as np
 import LinearBidModel
+import FMBidModel
+import pandas as pd
 
 
 def exeConstantBidModel(validationData, trainData=None, train=False, writeResult2CSV=False):
@@ -99,6 +101,30 @@ def exeSGDBidModel(validationData=None, trainData=None, writeResult2CSV=False):
     myEvaluator.computePerformanceMetricsDF(25000*1000, bids, validationData)
     myEvaluator.printResult()
 
+def exeFMBidModel(validationDataOneHot=None, trainDataOneHot=None, validationData=None, writeResult2CSV=False):
+    # Get regressionFormulaX
+    X_column = list(trainDataOneHot)
+    unwanted_Column = ['click', 'bidid', 'bidprice', 'payprice', 'userid', 'IP', 'url', 'creative', 'keypage']
+    [X_column.remove(i) for i in unwanted_Column]
+    final_x = X_column[0]
+    for i in range(1, len(X_column)):
+        final_x = final_x + ' + ' + X_column[i]
+
+    fmBidModel=FMBidModel.FMBidModel(regressionFormulaY='click', regressionFormulaX=X_column, cBudget=272.412385 * 1000, avgCTR=0.2, modelType='fmclassificationals')
+    fmBidModel.trainModel(trainDataOneHot, retrain=True, modelFile="FMSGDClassifier.pkl")
+    fmBidModel.validateModel(validationDataOneHot, validationData)
+    # lrBidModel.gridSearchandCrossValidate(trainData.getDataFrame())
+
+    bids = fmBidModel.getBidPrice(validationDataOneHot)
+    if writeResult2CSV:
+        ipinyouWriter.ResultWriter().writeResult("FMSGDbidModelresult.csv", bids)
+    myEvaluator = Evaluator.Evaluator()
+
+    #Convert back to label 1 and 0 for evaluator
+    validationData['click'] = validationData['click'].map({-1: 0, 1: 1})
+    myEvaluator.computePerformanceMetricsDF(25000*1000, bids, validationData)
+    myEvaluator.printResult()
+
 
 
 # Read in train.csv to train the model
@@ -106,29 +132,54 @@ def exeSGDBidModel(validationData=None, trainData=None, writeResult2CSV=False):
 # validationset = "../dataset/debug.csv"
 trainset = "../dataset/train_cleaned_prune.csv"
 validationset = "../dataset/validation_cleaned_prune.csv"
-testset = "../dataset/test.csv"
+testset = "../dataset/combined.csv"
 
 print("Reading dataset...")
 reader_encoded = ipinyouReader.ipinyouReaderWithEncoding()
 trainDF, validateDF, testDF = reader_encoded.getTrainValidationTestDF_V2(trainset, validationset, testset)
 
+
 # TODO Make Constant model take in DF
-# Execute Constant Bid Model
-print("== Constant bid model")
-exeConstantBidModel(validationData=validateDF, trainData=trainDF, train=True, writeResult2CSV=True)
+# # Execute Constant Bid Model
+# print("== Constant bid model")
+# exeConstantBidModel(validationData=validateDF, trainData=trainDF, train=True, writeResult2CSV=True)
+#
+# # Execute Gaussian Random Bid Model
+# print("== Gaussian random bid model")
+# exeGaussianRandomBidModel(validationData=validateDF, trainData=None, writeResult2CSV=False)
+#
+# # Execute Uniform Random Bid Model
+# print("== Uniform random bid model")
+# exeUniformRandomBidModel(validationData=validateDF, trainData=None, writeResult2CSV=False)
+#
+# # Execute LR Bid Model
+# print("============ Logistic Regression bid model")
+# exeLogisticRegressionBidModel(validationData=validateDF, trainData=trainDF, writeResult2CSV=True)
+#
+# # Execute SDG Bid Model
+# print("============ SGD bid model")
+# exeSGDBidModel(validationData=validateDF, trainData=trainDF, writeResult2CSV=True)
 
-# Execute Gaussian Random Bid Model
-print("== Gaussian random bid model")
-exeGaussianRandomBidModel(validationData=validateDF, trainData=None, writeResult2CSV=False)
+# Execute FM Bid Model
+print("============ FM bid model")
+combinedDF=testDF
+X_column = list(combinedDF)
+unwanted_Column = ['click', 'bidid', 'bidprice', 'payprice', 'userid', 'IP', 'url', 'creative', 'keypage']
+[X_column.remove(i) for i in unwanted_Column]
+final_x = X_column[0]
+for i in range(1, len(X_column)):
+    final_x = final_x + ' + ' + X_column[i]
 
-# Execute Uniform Random Bid Model
-print("== Uniform random bid model")
-exeUniformRandomBidModel(validationData=validateDF, trainData=None, writeResult2CSV=False)
-
-# Execute LR Bid Model
-print("============ Logistic Regression bid model")
-exeLogisticRegressionBidModel(validationData=validateDF, trainData=trainDF, writeResult2CSV=True)
-
-# Execute SDG Bid Model
-print("============ SGD bid model")
-exeSGDBidModel(validationData=validateDF, trainData=trainDF, writeResult2CSV=True)
+print("FMClassification only accepts -1 and 1 as Gold labels. Changing gold labels from 0 to -1")
+combinedDF['click'] = combinedDF['click'].map({0: -1, 1: 1})
+validateDF['click'] = validateDF['click'].map({0: -1, 1: 1})
+# combinedDF.to_csv(path_or_buf="combinedDF.csv")
+print("Performing one hot encoding of combined set")
+combinedDF = pd.get_dummies(data=combinedDF,sparse=True, columns=X_column)
+print("combinedDF Cols:", list(combinedDF))
+print("Split back into train and val sets...gonna take a while")
+trainDFonehot=combinedDF.ix[0:9928]
+validateDFonehot=combinedDF.ix[9929:]
+# trainDF.to_csv(path_or_buf="trainDF.csv")
+# validateDF.to_csv(path_or_buf="validateDF.csv")
+exeFMBidModel(validationDataOneHot=validateDFonehot, trainDataOneHot=trainDFonehot, validationData=validateDF, writeResult2CSV=True)

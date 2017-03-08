@@ -49,17 +49,14 @@ import numpy as np
 from patsy import patsy
 from sklearn.linear_model import LogisticRegression
 from sklearn.linear_model import SGDClassifier
-import ipinyouReader as ipinyouReader
 from ipinyouWriter import ResultWriter as ResultWriter
 from sklearn import metrics
 from sklearn.grid_search import GridSearchCV
 from UserException import ModelNotTrainedException
-from sklearn.externals import joblib
 import datetime
 import pandas as pd
 from fastFM import sgd
 from fastFM import als
-from sklearn.preprocessing import OneHotEncoder
 import scipy as scipy
 from BidModels import BidModelInterface
 
@@ -72,7 +69,7 @@ class FMBidModel(BidModelInterface):
     _modelType=None
 
 
-    def __init__(self, regressionFormulaY='click', regressionFormulaX='weekday + hour + region + city + adexchange +slotwidth + slotheight + slotprice + advertiser',cBudget=25000*1000, avgCTR=0.000754533880574, modelType="fmclassification"):
+    def __init__(self, regressionFormulaY='click', regressionFormulaX='weekday + hour + region + city + adexchange +slotwidth + slotheight + slotprice + advertiser',cBudget=25000*1000, avgCTR=0.000754533880574, modelType="fmclassificationsgd"):
         """
 
         :param regressionFormulaY:
@@ -97,6 +94,9 @@ class FMBidModel(BidModelInterface):
         :param avgCTR: Consider this as the avgCTR for the training set
         :return: bid
         """
+        # base_bid_factor=1
+        # if (pCTR<0.5):
+        #     base_bid_factor=
         bid=self._cBudget*(pCTR/self._avgCTR)
         return bid
 
@@ -109,20 +109,23 @@ class FMBidModel(BidModelInterface):
         """
 
         print("Setting up X test for prediction")
-        print("testDF[self._regressionFormulaX]:", testDF[self._regressionFormulaX])
-        print("Performing one-hot encoding")
-        xTest = pd.get_dummies(data=testDF[self._regressionFormulaX], sparse=True,columns=self._regressionFormulaX)
-        print("Test X shape:", xTest.as_matrix().shape)
+        xTest=testDF[self._regressionFormulaX]
+
         print("Converting to sparse matrix")
         xTest = scipy.sparse.csc_matrix(xTest.as_matrix())
-        # xTest = self.__sparse_df_to_array(xTest)
-        print("xTrain:", xTest)
 
         # predict click labels for the test set
         print("Predicting test set...")
-        predictedClickOneProb = self._model.predict_proba(xTest)
 
-        return predictedClickOneProb[:,1]
+        # FastFM only give a probabilty of a click=1
+        predictedClickOneProb = self._model.predict_proba(xTest)
+        # predictedClickOne = self._model.predict(xTest)
+        # print("predictedClickOne shape:",predictedClickOne.shape)
+        # print("predictedClickOne :", predictedClickOne)
+        #
+        # print("predictedClickOneProb shape:",predictedClickOneProb.shape)
+        # print("predictedClickOneProb :", predictedClickOneProb)
+        return predictedClickOneProb
 
 
     def getBidPrice(self, allBidRequest):
@@ -164,57 +167,44 @@ class FMBidModel(BidModelInterface):
         Trained model will be saved to disk (No need retrain/reload training data in future if not required during program rerun)
         :param allTrainData:
         :param retrain: If False, will load self._modelFile instead of training the dataset.
+        :param modelFile: To save trained model into physical file.
         :return:
         """
         self._modelFile=modelFile
         # instantiate a logistic regression model
-        if(self._modelType=='fmclassificationsgd'):
-            print("Factorisation Machine with SGD will be used for training")
-            self._model = als.FMClassification(n_iter=100, rank=2)
+        # TODO: Need to tune the model parameters
+        if(self._modelType=='fmclassificationals'):
+            print("Factorisation Machine with ALS solver will be used for training")
+            self._model = als.FMClassification(n_iter=500, rank=2)
 
-            #FMClassification only accepts -1 and 1 as Gold labels. Changing gold labels from 0 to -1
-            print("FMClassification only accepts -1 and 1 as Gold labels. Changing gold labels from 0 to -1")
-            allTrainData['click'] = allTrainData['click'].map({0: -1, 1: 1})
+        elif(self._modelType=='fmclassificationsgd'):
+            print("Factorisation Machine with SGD solver will be used for training")
+            self._model = sgd.FMClassification(n_iter=500, rank=2)
 
         else:
-            print("Unrecognised modelType: Factorisation Machine with SGD defaulted training")
-            self._model = als.FMClassification(n_iter=100, rank=2)
-            print("FMClassification only accepts -1 and 1 as Gold labels. Changing gold labels from 0 to -1")
-            allTrainData['click'] = allTrainData['click'].map({0: -1, 1: 1})
+            print("Unrecognised modelType: Factorisation Machine with ALS defaulted training")
+            self._model = als.FMClassification(n_iter=500, rank=2)
 
         if (retrain):
-            print("Setting up Y and X for logistic regression")
+            print("Setting up Y and X for training")
             print(datetime.datetime.now())
-            print("allTrainData[self._regressionFormulaX]:",allTrainData[self._regressionFormulaX])
-            print("Performing one-hot encoding")
-            xTrain = pd.get_dummies(data=allTrainData[self._regressionFormulaX],sparse=True, columns=self._regressionFormulaX)
-            print("Training X shape:", xTrain.as_matrix().shape)
-            print("Converting to sparse matrix")
+            xTrain=allTrainData[self._regressionFormulaX]
+            yTrain = allTrainData['click']
+
+            print("Converting X to sparse matrix, required by FastFM")
             xTrain= scipy.sparse.csc_matrix(xTrain.as_matrix())
-            # xTrain=self.__sparse_df_to_array(xTrain)
-            print("xTrain:", xTrain)
-            # encoder = OneHotEncoder().fit(allTrainData)
-            # print("OneHotEncoder status:", encoder)
-            # xTrain=encoder.transform(allTrainData)
-            yTrain=allTrainData['click']
 
             # #FastFM can only accept sparse matrixes...so cannot use patsy alone to encode the feature set
             # yTrain, xTrain = patsy.dmatrices(self._regressionFormulaY + ' ~ ' + self._regressionFormulaX, allTrainData, return_type="dataframe")
 
             # print("No of features in input matrix: %d" % len(xTrain.columns))
 
-            # flatten y into a 1-D array
-
-            print("Flatten y into 1-D array")
-            print(datetime.datetime.now())
-            yTrain = np.ravel(yTrain)
-
-
             print("Training Model...")
             print(datetime.datetime.now())
 
             self._model = self._model.fit(xTrain, yTrain)  # Loss function:liblinear
             super(FMBidModel, self).saveModel(self._model, self._modelFile)
+
             # check the accuracy on the training set
             print("\n\nTraining acccuracy: %5.3f" % self._model.score(xTrain, yTrain))
         else:
@@ -224,6 +214,7 @@ class FMBidModel(BidModelInterface):
         print(datetime.datetime.now())
 
     def gridSearchandCrossValidate(self, allTrainData, retrain=True):
+        #TODO: WARNING: gridSearchandCrossValidate METHOD HAS YET TO BE THOROUGHLY TESTED on this Model
         print("WARNING: gridSearchandCrossValidate METHOD HAS YET TO BE THOROUGHLY TESTED")
         print("Setting up Y and X for logistic regression")
         print(datetime.datetime.now())
@@ -271,50 +262,26 @@ class FMBidModel(BidModelInterface):
         for i in range(len(scores)):
             print(optimized_LR.grid_scores_[i])
 
-    def validateModel(self, allValidateData):
+    def validateModel(self, allValidateDataOneHot, allValidateData):
         if(self._model!=None):
             print("Setting up X Y validation for prediction")
-            yValidate, xValidate = patsy.dmatrices(self._regressionFormulaY + ' ~ ' + self._regressionFormulaX, allValidateData, return_type="dataframe")
-            print("No of features in input matrix: %d" % len(xValidate.columns))
+
+            xValidate = allValidateDataOneHot[self._regressionFormulaX]
+
+            print("Converting to sparse matrix")
+            xValidate = scipy.sparse.csc_matrix(xValidate.as_matrix())
 
             # predict click labels for the validation set
             print("Predicting validation set...")
-            predicted = self._model.predict(xValidate)  # 0.5 prob threshold
-            print("Writing to csv")
+            predicted = self._model.predict(xValidate)
+
+            print("Writing to validated prediction csv")
             valPredictionWriter = ResultWriter()
-            valPredictionWriter.writeResult(filename="predictValidate.csv", data=predicted)
-            print("\n\nPrediction report on validation set:",metrics.classification_report(yValidate, predicted))
+            valPredictionWriter.writeResult(filename="FastFMpredictValidate.csv", data=predicted)
+            print("\n\nPrediction report on validation set:",metrics.classification_report(allValidateData['click'], predicted))
         else:
             print("Error: No model was trained in this instance....")
 
-    def __sparse_df_to_array(self,df):
-        num_rows = df.shape[0]
-
-        data = []
-        row = []
-        col = []
-
-        for i, col_name in enumerate(df.columns):
-            if isinstance(df[col_name], pd.SparseSeries):
-                column_index = df[col_name].sp_index
-                if isinstance(column_index, pd._sparse.BlockIndex):
-                    column_index = column_index.to_int_index()
-
-                ix = column_index.indices
-                data.append(df[col_name].sp_values)
-                row.append(ix)
-                col.append(len(df[col_name].sp_values) * [i])
-            else:
-                data.append(df[col_name].values)
-                row.append(np.array(range(0, num_rows)))
-                col.append(np.array(num_rows * [i]))
-
-        data_f = np.concatenate(data)
-        row_f = np.concatenate(row)
-        col_f = np.concatenate(col)
-
-        arr = scipy.sparse.coo_matrix((data_f, (row_f, col_f)), df.shape, dtype=np.float64)
-        return arr.tocsc()
 
 # if __name__ == "__main__":
 #     # load datasets
