@@ -197,7 +197,7 @@ class ipinyouReaderWithEncoding():
 
         combined_set['slotdimension'] = combined_set['slotwidth'].map(str) + "x" + combined_set['slotheight'].map(str)
 
-        combined_set = pd.concat([combined_set, combined_set.usertag.astype(str).str.strip('[]').str.get_dummies(',').astype(np.int8)], axis=1)
+        combined_set = pd.concat([combined_set, combined_set.usertag.astype(str).str.strip('[]').str.get_dummies(',').astype(np.uint8)], axis=1)
         combined_set.rename(columns={'null': 'unknownusertag'}, inplace=True)
 
         # Appended X to all column name with digit only for patsy
@@ -207,6 +207,23 @@ class ipinyouReaderWithEncoding():
                 updatedName[i] = 'X' + i
 
         combined_set.rename(columns=updatedName, inplace=True)
+
+        combined_set['os'] = combined_set.useragent.str.split('_').str.get(0)
+        combined_set['browser'] = combined_set.useragent.str.split('_').str.get(1)
+        # combined_set['ip_block'] = combined_set.IP.str.split('.').str.get(0) #+"."+combined_set.IP.str.split('.').str.get(1)
+
+
+
+        # combined_set.ix[combined_set.slotprice.between(0, 20), 'slotpricebucket'] = 1
+        # combined_set.ix[combined_set.slotprice.between(21, 40), 'slotpricebucket'] = 2
+        # combined_set.ix[combined_set.slotprice.between(41, 60), 'slotpricebucket'] = 3
+        # combined_set.ix[combined_set.slotprice.between(61, 80), 'slotpricebucket'] = 4
+        # combined_set.ix[combined_set.slotprice.between(81, 100), 'slotpricebucket'] = 5
+        # combined_set.ix[combined_set.slotprice.between(101, 120), 'slotpricebucket'] = 6
+        # combined_set.ix[combined_set.slotprice.between(121, 140), 'slotpricebucket'] = 7
+        # combined_set.ix[combined_set.slotprice.between(141, 10000), 'slotpricebucket'] = 8
+        # combined_set['slotpricebucket'] = combined_set['slotpricebucket'].astype(np.uint8)
+
 
         # Useless column that contains only 1 unique value
         # Remove them to save some memory
@@ -230,7 +247,10 @@ class ipinyouReaderWithEncoding():
                 feature == 'slotvisibility' or \
                 feature == 'creative' or \
                 feature == 'keypage' or \
-                feature == 'slotdimension':
+                feature == 'slotdimension' or \
+                feature == 'os' or \
+                feature == 'browser' or \
+                feature == 'ip_block':
 
                 original = combined_set[feature]
                 # Replace strings with an integer
