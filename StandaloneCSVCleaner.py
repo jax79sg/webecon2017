@@ -17,6 +17,7 @@ This script does the following
 def removeErrorRows(df):
     print("Before: ", df.shape[0])
     df = df[df.bidprice >= df.payprice]
+    df = df[df.payprice >= df.slotprice]
     print("After: ", df.shape[0])
     return df
 
