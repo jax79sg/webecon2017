@@ -56,6 +56,7 @@ from UserException import ModelNotTrainedException
 import datetime
 import pandas as pd
 from fastFM import sgd
+from fastFM import mcmc
 from fastFM import als
 import scipy as scipy
 from BidModels import BidModelInterface
@@ -119,12 +120,7 @@ class FMBidModel(BidModelInterface):
 
         # FastFM only give a probabilty of a click=1
         predictedClickOneProb = self._model.predict_proba(xTest)
-        # predictedClickOne = self._model.predict(xTest)
-        # print("predictedClickOne shape:",predictedClickOne.shape)
-        # print("predictedClickOne :", predictedClickOne)
-        #
-        # print("predictedClickOneProb shape:",predictedClickOneProb.shape)
-        # print("predictedClickOneProb :", predictedClickOneProb)
+
         return predictedClickOneProb
 
 
@@ -175,15 +171,15 @@ class FMBidModel(BidModelInterface):
         # TODO: Need to tune the model parameters
         if(self._modelType=='fmclassificationals'):
             print("Factorisation Machine with ALS solver will be used for training")
-            self._model = als.FMClassification(n_iter=500, rank=2)
+            self._model = als.FMClassification(n_iter=3000, rank=2)
 
         elif(self._modelType=='fmclassificationsgd'):
             print("Factorisation Machine with SGD solver will be used for training")
-            self._model = sgd.FMClassification(n_iter=500, rank=2)
+            self._model = sgd.FMClassification(n_iter=3000, rank=2, l2_reg_w=0.01, l2_reg_V=0.01, l2_reg=0.01, step_size=0.004)
 
         else:
             print("Unrecognised modelType: Factorisation Machine with ALS defaulted training")
-            self._model = als.FMClassification(n_iter=500, rank=2)
+            self._model = als.FMClassification(n_iter=3000, rank=2)
 
         if (retrain):
             print("Setting up Y and X for training")
@@ -274,6 +270,9 @@ class FMBidModel(BidModelInterface):
             # predict click labels for the validation set
             print("Predicting validation set...")
             predicted = self._model.predict(xValidate)
+
+            print("Gold label: ",allValidateData['click'])
+            print("predicted label: ", predicted)
 
             print("Writing to validated prediction csv")
             valPredictionWriter = ResultWriter()

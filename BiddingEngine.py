@@ -2,7 +2,6 @@ import ipinyouReader
 import ipinyouWriter
 import Evaluator
 import BidModels
-import numpy as np
 import LinearBidModel
 import FMBidModel
 import pandas as pd
@@ -101,7 +100,7 @@ def exeSGDBidModel(validationData=None, trainData=None, writeResult2CSV=False):
     myEvaluator.computePerformanceMetricsDF(25000*1000, bids, validationData)
     myEvaluator.printResult()
 
-def exeFMBidModel(validationDataOneHot=None, trainDataOneHot=None, validationData=None, writeResult2CSV=False):
+def exeFM_ALSBidModel(validationDataOneHot=None, trainDataOneHot=None, validationData=None, writeResult2CSV=False):
     # Get regressionFormulaX
     X_column = list(trainDataOneHot)
     unwanted_Column = ['click', 'bidid', 'bidprice', 'payprice', 'userid', 'IP', 'url', 'creative', 'keypage']
@@ -111,6 +110,30 @@ def exeFMBidModel(validationDataOneHot=None, trainDataOneHot=None, validationDat
         final_x = final_x + ' + ' + X_column[i]
 
     fmBidModel=FMBidModel.FMBidModel(regressionFormulaY='click', regressionFormulaX=X_column, cBudget=272.412385 * 1000, avgCTR=0.2, modelType='fmclassificationals')
+    fmBidModel.trainModel(trainDataOneHot, retrain=True, modelFile="FMALSClassifier.pkl")
+    fmBidModel.validateModel(validationDataOneHot, validationData)
+    # lrBidModel.gridSearchandCrossValidate(trainData.getDataFrame())
+
+    bids = fmBidModel.getBidPrice(validationDataOneHot)
+    if writeResult2CSV:
+        ipinyouWriter.ResultWriter().writeResult("FMALSbidModelresult.csv", bids)
+    myEvaluator = Evaluator.Evaluator()
+
+    #Convert back to label 1 and 0 for evaluator
+    validationData['click'] = validationData['click'].map({-1: 0, 1: 1})
+    myEvaluator.computePerformanceMetricsDF(25000*1000, bids, validationData)
+    myEvaluator.printResult()
+
+def exeFM_SGDBidModel(validationDataOneHot=None, trainDataOneHot=None, validationData=None, writeResult2CSV=False):
+    # Get regressionFormulaX
+    X_column = list(trainDataOneHot)
+    unwanted_Column = ['click', 'bidid', 'bidprice', 'payprice', 'userid', 'IP', 'url', 'creative', 'keypage']
+    [X_column.remove(i) for i in unwanted_Column]
+    final_x = X_column[0]
+    for i in range(1, len(X_column)):
+        final_x = final_x + ' + ' + X_column[i]
+    #TODO: FM with SGD is currently predicting all click as 0. Training was also stuck at click=0. Will need to analyse and fix.
+    fmBidModel=FMBidModel.FMBidModel(regressionFormulaY='click', regressionFormulaX=X_column, cBudget=272.412385 * 1000, avgCTR=0.2, modelType='fmclassificationsgd')
     fmBidModel.trainModel(trainDataOneHot, retrain=True, modelFile="FMSGDClassifier.pkl")
     fmBidModel.validateModel(validationDataOneHot, validationData)
     # lrBidModel.gridSearchandCrossValidate(trainData.getDataFrame())
@@ -124,7 +147,6 @@ def exeFMBidModel(validationDataOneHot=None, trainDataOneHot=None, validationDat
     validationData['click'] = validationData['click'].map({-1: 0, 1: 1})
     myEvaluator.computePerformanceMetricsDF(25000*1000, bids, validationData)
     myEvaluator.printResult()
-
 
 
 # Read in train.csv to train the model
@@ -161,7 +183,7 @@ trainDF, validateDF, testDF = reader_encoded.getTrainValidationTestDF_V2(trainse
 # exeSGDBidModel(validationData=validateDF, trainData=trainDF, writeResult2CSV=True)
 
 # Execute FM Bid Model
-print("============ FM bid model")
+print("============ Factorisation Machine bid model....setting up")
 combinedDF=testDF
 X_column = list(combinedDF)
 unwanted_Column = ['click', 'bidid', 'bidprice', 'payprice', 'userid', 'IP', 'url', 'creative', 'keypage']
@@ -170,7 +192,7 @@ final_x = X_column[0]
 for i in range(1, len(X_column)):
     final_x = final_x + ' + ' + X_column[i]
 
-print("FMClassification only accepts -1 and 1 as Gold labels. Changing gold labels from 0 to -1")
+print("FastFM classification only accepts -1 and 1 as Gold labels. Changing gold labels from 0 to -1")
 combinedDF['click'] = combinedDF['click'].map({0: -1, 1: 1})
 validateDF['click'] = validateDF['click'].map({0: -1, 1: 1})
 # combinedDF.to_csv(path_or_buf="combinedDF.csv")
@@ -182,4 +204,11 @@ trainDFonehot=combinedDF.ix[0:9928]
 validateDFonehot=combinedDF.ix[9929:]
 # trainDF.to_csv(path_or_buf="trainDF.csv")
 # validateDF.to_csv(path_or_buf="validateDF.csv")
-exeFMBidModel(validationDataOneHot=validateDFonehot, trainDataOneHot=trainDFonehot, validationData=validateDF, writeResult2CSV=True)
+
+print("============ FM ALS bid model")
+exeFM_ALSBidModel(validationDataOneHot=validateDFonehot, trainDataOneHot=trainDFonehot, validationData=validateDF, writeResult2CSV=True)
+
+print("============ FM SGD bid model")
+#No idea why validateDF  got mutated after calling exeFM_ALSBidModel, so have to transform back.
+validateDF['click'] = validateDF['click'].map({0: -1, 1: 1})
+exeFM_SGDBidModel(validationDataOneHot=validateDFonehot, trainDataOneHot=trainDFonehot, validationData=validateDF, writeResult2CSV=True)
