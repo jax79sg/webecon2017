@@ -25,11 +25,9 @@ class XGBoostBidModel(BidModelInterface):
         xgdmat = xgb.DMatrix(xTest)
         y_pred = self._model.predict(xgdmat)
 
-        y_pred = [1 if i >= 0.07 else 0 for i in y_pred]
+        # y_pred = [1 if i >= 0.07 else 0 for i in y_pred]
 
-        bidprice = BidEstimator().linearBidPrice(y_pred, base_bid=70, avg_ctr=0.2)
-
-
+        bidprice = BidEstimator().linearBidPrice(y_pred, base_bid=220, avg_ctr=0.2)
 
         bids = np.stack([testDF['bidid'], bidprice], axis=1)
         bids = pd.DataFrame(bids, columns=['bidid', 'bidprice'])
@@ -120,13 +118,22 @@ class XGBoostBidModel(BidModelInterface):
         for i in range(len(scores)):
             print(optimized_GBM.grid_scores_[i])
 
+    def __estimateClick(self, df):
+        xTest = df[self.X_column]
+        print("No of features in input matrix: %d" % len(xTest.columns))
+
+        xgdmat = xgb.DMatrix(xTest)
+        y_pred = self._model.predict(xgdmat)
+
+        return y_pred
+
     def validateModel(self, validateDF):
         print("Setting up XGBoost for Validation: X and Y")
-        xValidate = validateDF[self.X_column]
+        # xValidate = validateDF[self.X_column]
         yValidate = validateDF[self.Y_column]
 
         # print(xValidate.columns)
-        print("No of features in input matrix: %d" % len(xValidate.columns))
+        # print("No of features in input matrix: %d" % len(xValidate.columns))
 
         # optimised_params = {'eta': 0.1, 'seed':0, 'subsample': 0.8, 'colsample_bytree': 0.8,
         #              'objective': 'binary:logistic', 'max_depth':3, 'min_child_weight':1}
@@ -135,8 +142,10 @@ class XGBoostBidModel(BidModelInterface):
         #
         # print("Importance: ", self._model.get_fscore())
 
-        xgdmat = xgb.DMatrix(xValidate)
-        y_pred = self._model.predict(xgdmat)
+        # xgdmat = xgb.DMatrix(xValidate)
+        # y_pred = self._model.predict(xgdmat)
+
+        y_pred = self.__estimateClick(validateDF)
 
         y_pred = [1 if i>=0.7 else 0 for i in y_pred]
         ClickEvaluator().printClickPredictionScore(y_pred, yValidate)
@@ -149,22 +158,53 @@ class XGBoostBidModel(BidModelInterface):
         # importance_frame.sort_values(by='Importance', inplace=True)
         # importance_frame.plot(kind='barh', x='Feature', figsize=(8, 8), color='orange')
 
+
+
+    # def tunelinearBaseBid(self, testDF):
+    #     print("Setting up XGBoost for Test set")
+    #     y_pred = self.__estimateClick(testDF)
+    #
+    #     y_pred = [1 if i >= 0.07 else 0 for i in y_pred]
+    #
+    #     avgCTR = np.count_nonzero(testDF.click) / testDF.shape[0]
+    #     myEvaluator = Evaluator.Evaluator()
+    #
+    #     bestCTR = -1
+    #     bestBidPrice = -1
+    #     for i in range(10, 300):
+    #         bidprice = BidEstimator().linearBidPrice(y_pred, i, avgCTR)
+    #         bids = np.stack([testDF['bidid'], bidprice], axis=1)
+    #
+    #         bids = pd.DataFrame(bids, columns=['bidid', 'bidprice'])
+    #
+    #         # print("Estimated bid price: ", bids.bidprice.ix[0])
+    #
+    #         resultDict = myEvaluator.computePerformanceMetricsDF(25000 * 1000, bids, validateDF)
+    #         myEvaluator.printResult()
+    #         ctr = resultDict['click'] / resultDict['won']
+    #
+    #         if ctr > bestCTR:
+    #             bestCTR = ctr
+    #             bestBidPrice = i
+    #
+    #     print("Best CTR: %.3f \nPrice: %d" %(bestCTR, bestBidPrice))
+
     def tunelinearBaseBid(self, testDF):
         print("Setting up XGBoost for Test set")
-        xTest = testDF[self.X_column]
+        y_pred = self.__estimateClick(testDF)
 
-        xgdmat = xgb.DMatrix(xTest)
-        y_pred = self._model.predict(xgdmat)
+        # y_pred = [1 if i >= 0.07 else 0 for i in y_pred]
 
-        y_pred = [1 if i >= 0.07 else 0 for i in y_pred]
-
-        avgCTR = np.count_nonzero(testDF.click) / testDF.shape[0]
+        # avgCTR = np.count_nonzero(testDF.click) / testDF.shape[0]
         myEvaluator = Evaluator.Evaluator()
 
         bestCTR = -1
         bestBidPrice = -1
-        for i in range(10, 300):
-            bidprice = BidEstimator().linearBidPrice(y_pred, i, avgCTR)
+
+        print("y_pred mean: ", np.mean(y_pred))
+
+        for i in range(220, 300):
+            bidprice = BidEstimator().linearBidPrice(y_pred, i, 0.2)
             bids = np.stack([testDF['bidid'], bidprice], axis=1)
 
             bids = pd.DataFrame(bids, columns=['bidid', 'bidprice'])
@@ -179,24 +219,28 @@ class XGBoostBidModel(BidModelInterface):
                 bestCTR = ctr
                 bestBidPrice = i
 
-        print("Best CTR: %.3f \nPrice: %d" %(bestCTR, bestBidPrice))
+        print("Best CTR: %.5f \nPrice: %d" %(bestCTR, bestBidPrice))
+
 
     def tuneConfidenceBaseBid(self, testDF):
         print("Setting up XGBoost for Test set")
-        xTest = testDF[self.X_column]
-
-        xgdmat = xgb.DMatrix(xTest)
-        y_pred = self._model.predict(xgdmat)
+        y_pred = self.__estimateClick(testDF)
 
         y_pred = [1 if i >= 0.7 else 0 for i in y_pred]
 
-        avgCTR = np.count_nonzero(testDF.click) / testDF.shape[0]
+        # print("number of 1 here: ", sum(y_pred))
+        # avgCTR = np.count_nonzero(testDF.click) / testDF.shape[0]
         myEvaluator = Evaluator.Evaluator()
 
         bestCTR = -1
         bestBidPrice = -1
-        for i in range(400, 401):
-            bidprice = BidEstimator().confidenceBidPrice(y_pred, 1, i)
+        for i in range(300, 301):
+            bidprice = BidEstimator().confidenceBidPrice(y_pred, -1, i)
+
+            # print("total bid price: ", sum(bidprice))
+            # print("total bid submitted: ", np.count_nonzero(bidprice))
+            # print("Number of $0 bid", bidprice.count(0))
+
             bids = np.stack([testDF['bidid'], bidprice], axis=1)
 
             bids = pd.DataFrame(bids, columns=['bidid', 'bidprice'])
@@ -265,8 +309,9 @@ if __name__ == "__main__":
     click_pred = XGBoostBidModel(X_column, Y_column)
     # click_pred.gridSearch(trainDF)
     click_pred.trainModel(trainDF)
-    click_pred.validateModel(validateDF)
-    click_pred.tuneConfidenceBaseBid(validateDF)
+    # click_pred.validateModel(validateDF)
+    # click_pred.tunelinearBaseBid(validateDF)
+    click_pred.getBidPrice(validateDF)
 
 
 

@@ -5,7 +5,7 @@ import BidModels
 import LinearBidModel
 import FMBidModel
 import pandas as pd
-
+from XGBoostBidModel import XGBoostBidModel
 
 def exeConstantBidModel(validationData, trainData=None, train=False, writeResult2CSV=False):
     # Constant Bidding Model
@@ -55,6 +55,25 @@ def exeUniformRandomBidModel(validationData, trainData=None, writeResult2CSV=Fal
     myEvaluator = Evaluator.Evaluator()
     myEvaluator.computePerformanceMetricsDF(25000 * 1000, bids, validationData)
     myEvaluator.printResult()
+
+def exeXGBoostBidModel(validationData, trainData=None, writeResult2CSV=False):
+
+    Y_column = 'click'
+    X_column = list(trainDF)
+    unwanted_Column = ['click', 'bidid', 'bidprice', 'payprice', 'userid', 'IP', 'url', 'creative', 'keypage']
+    [X_column.remove(i) for i in unwanted_Column]
+
+    xgd = XGBoostBidModel(X_column, Y_column)
+    xgd.trainModel(trainData)
+    bids = xgd.getBidPrice(validationData)
+
+    if writeResult2CSV:
+        ipinyouWriter.ResultWriter().writeResult("resultXGBoostBidModel.csv", bids)
+
+    myEvaluator = Evaluator.Evaluator()
+    myEvaluator.computePerformanceMetricsDF(25000 * 1000, bids, validationData)
+    myEvaluator.printResult()
+
 
 def exeLogisticRegressionBidModel(validationData=None, trainData=None, writeResult2CSV=False):
     # Get regressionFormulaX
@@ -161,7 +180,6 @@ reader_encoded = ipinyouReader.ipinyouReaderWithEncoding()
 trainDF, validateDF, testDF = reader_encoded.getTrainValidationTestDF_V2(trainset, validationset, testset)
 
 
-# TODO Make Constant model take in DF
 # # Execute Constant Bid Model
 # print("== Constant bid model")
 # exeConstantBidModel(validationData=validateDF, trainData=trainDF, train=True, writeResult2CSV=True)
@@ -173,6 +191,10 @@ trainDF, validateDF, testDF = reader_encoded.getTrainValidationTestDF_V2(trainse
 # # Execute Uniform Random Bid Model
 # print("== Uniform random bid model")
 # exeUniformRandomBidModel(validationData=validateDF, trainData=None, writeResult2CSV=False)
+#
+# # Execute XGBoost Bid Model
+# print("== XGBoost bid model")
+# exeXGBoostBidModel(validationData=validateDF, trainData=trainDF, writeResult2CSV=False)
 #
 # # Execute LR Bid Model
 # print("============ Logistic Regression bid model")

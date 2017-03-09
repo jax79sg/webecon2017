@@ -221,7 +221,9 @@ class ipinyouReaderWithEncoding():
         # combined_set.ix[combined_set.slotprice.between(81, 100), 'slotpricebucket'] = 5
         # combined_set.ix[combined_set.slotprice.between(101, 120), 'slotpricebucket'] = 6
         # combined_set.ix[combined_set.slotprice.between(121, 140), 'slotpricebucket'] = 7
-        # combined_set.ix[combined_set.slotprice.between(141, 10000), 'slotpricebucket'] = 8
+        # combined_set.ix[combined_set.slotprice.between(141, 160), 'slotpricebucket'] = 8
+        # combined_set.ix[combined_set.slotprice.between(161, 180), 'slotpricebucket'] = 9
+        # combined_set.ix[combined_set.slotprice.between(181, 5000), 'slotpricebucket'] = 10
         # combined_set['slotpricebucket'] = combined_set['slotpricebucket'].astype(np.uint8)
 
 

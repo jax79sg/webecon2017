@@ -3,13 +3,26 @@ import numpy as np
 class BidEstimator():
 
     def linearBidPrice(self, y_pred, base_bid, avg_ctr):
-        p_ctr = np.count_nonzero(y_pred)/len(y_pred)
-        bid = base_bid * (p_ctr/avg_ctr)
+        '''
+        Based on the formula
+            bid = base_bid x (pCTR/avgCTR)
 
-        print("p_ctr: %.3f\t avg_ctr: %.3f\t base_bid: %d\t bid: %d" %(p_ctr, avg_ctr, base_bid, bid))
+        p_ctr = prob of 1 from model
+        avg_ctr = np.count_nonzero(testset)/len(testset)
 
-        bidprice = np.full(len(y_pred), bid, dtype=int)
-        return bidprice
+
+        :param y_pred: Array of prediction based on 1 and 0. 1 means click
+        :param base_bid: A integer value between 1 to 1000 or anything
+        :param avg_ctr:
+        :return:
+
+        '''
+        # print("y_pred: ", y_pred[0:10])
+        bids = [base_bid * (i/avg_ctr) for i in y_pred]
+        # print("ave bid: ", np.mean(bids))
+        # print(bids[0:10])
+
+        return bids
 
     def confidenceBidPrice(self, y_pred, base_bid, max_variable_bid):
         '''
