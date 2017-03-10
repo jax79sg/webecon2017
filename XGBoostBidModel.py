@@ -27,7 +27,8 @@ class XGBoostBidModel(BidModelInterface):
 
         # y_pred = [1 if i >= 0.07 else 0 for i in y_pred]
 
-        bidprice = BidEstimator().linearBidPrice(y_pred, base_bid=220, avg_ctr=0.2)
+        # bidprice = BidEstimator().linearBidPrice(y_pred, base_bid=220, avg_ctr=0.2)
+        bidprice = BidEstimator().linearBidPrice_mConfi(y_pred, base_bid=240, variable_bid=100, m_conf=0.8)
 
         bids = np.stack([testDF['bidid'], bidprice], axis=1)
         bids = pd.DataFrame(bids, columns=['bidid', 'bidprice'])
@@ -203,8 +204,12 @@ class XGBoostBidModel(BidModelInterface):
 
         print("y_pred mean: ", np.mean(y_pred))
 
-        for i in range(220, 300):
-            bidprice = BidEstimator().linearBidPrice(y_pred, i, 0.2)
+        x = np.arange(0.5, 0.9, 0.05)
+        # for i in x:
+        for i in range(220, 260):
+            print("================= i : ", i)
+            # bidprice = BidEstimator().linearBidPrice(y_pred, i, 0.2)
+            bidprice = BidEstimator().linearBidPrice_mConfi(y_pred, i, 90, 0.8)
             bids = np.stack([testDF['bidid'], bidprice], axis=1)
 
             bids = pd.DataFrame(bids, columns=['bidid', 'bidprice'])
@@ -310,8 +315,8 @@ if __name__ == "__main__":
     # click_pred.gridSearch(trainDF)
     click_pred.trainModel(trainDF)
     # click_pred.validateModel(validateDF)
-    # click_pred.tunelinearBaseBid(validateDF)
-    click_pred.getBidPrice(validateDF)
+    click_pred.tunelinearBaseBid(validateDF)
+    # click_pred.getBidPrice(validateDF)
 
 
 
