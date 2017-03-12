@@ -210,7 +210,7 @@ class ipinyouReaderWithEncoding():
 
         combined_set['os'] = combined_set.useragent.str.split('_').str.get(0)
         combined_set['browser'] = combined_set.useragent.str.split('_').str.get(1)
-        # combined_set['ip_block'] = combined_set.IP.str.split('.').str.get(0) #+"."+combined_set.IP.str.split('.').str.get(1)
+        combined_set['ip_block'] = combined_set.IP.str.split('.').str.get(0) #+"."+combined_set.IP.str.split('.').str.get(1)
 
 
 
