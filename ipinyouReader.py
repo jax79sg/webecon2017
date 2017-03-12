@@ -212,6 +212,30 @@ class ipinyouReaderWithEncoding():
         combined_set['browser'] = combined_set.useragent.str.split('_').str.get(1)
         combined_set['ip_block'] = combined_set.IP.str.split('.').str.get(0) #+"."+combined_set.IP.str.split('.').str.get(1)
 
+        # Add Frequency Feature
+        def createFreqColumn(df, columnName):
+            freq = pd.DataFrame(df[columnName].value_counts())
+            freq.rename(columns={columnName: columnName+'_freq'}, inplace=True)
+            freq.index.name = columnName
+            freq.reset_index(inplace=True)
+            return pd.merge(df, freq, how='left', on=columnName)
+
+        combined_set = createFreqColumn(combined_set, 'region')
+        combined_set = createFreqColumn(combined_set, 'city')
+        combined_set = createFreqColumn(combined_set, 'ip_block')
+        combined_set = createFreqColumn(combined_set, 'adexchange')
+        combined_set = createFreqColumn(combined_set, 'os')
+        combined_set = createFreqColumn(combined_set, 'browser')
+        combined_set = createFreqColumn(combined_set, 'mobileos')
+        combined_set = createFreqColumn(combined_set, 'slotformat')
+        combined_set = createFreqColumn(combined_set, 'slotdimension')
+        combined_set = createFreqColumn(combined_set, 'slotvisibility')
+        combined_set = createFreqColumn(combined_set, 'slotwidth')
+        combined_set = createFreqColumn(combined_set, 'slotheight')
+        combined_set = createFreqColumn(combined_set, 'weekday')
+        combined_set = createFreqColumn(combined_set, 'hour')
+
+        # Add CTR Feature
 
 
         # combined_set.ix[combined_set.slotprice.between(0, 20), 'slotpricebucket'] = 1
@@ -271,6 +295,8 @@ class ipinyouReaderWithEncoding():
         return train, validation, test
 
         # print("dict", dict)
+
+
 
 # reader_encoded = ipinyouReaderWithEncoding()
 # reader_encoded.getTrainValidationTestDD("../dataset/debug.csv", "../dataset/debug.csv", "../dataset/test.csv")
