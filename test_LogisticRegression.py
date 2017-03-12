@@ -132,7 +132,10 @@ print("Predicting validation set...")
 
 predicted = model.predict(xValidate) #0.5 prob threshold
 predicted_prob=print(model.predict_proba(xValidate))
-ClickEvaluator().printClickPredictionScore(predicted, yValidate)
+ce = ClickEvaluator()
+ce.printClickPredictionScore(predicted, yValidate)
+ce.printRMSE(predicted, yValidate)
+ce.roc_results_plot(yValidate, predicted, False)
 
 print("Writing to csv")
 valPredictionWriter=ResultWriter()

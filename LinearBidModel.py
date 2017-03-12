@@ -60,6 +60,7 @@ from UserException import ModelNotTrainedException
 from sklearn.externals import joblib
 import datetime
 import pandas as pd
+import Evaluator
 
 from BidModels import BidModelInterface
 
@@ -198,6 +199,7 @@ class LinearBidModel(BidModelInterface):
             super(LinearBidModel, self).saveModel(self._model, self._modelFile)
             # check the accuracy on the training set
             print("\n\nTraining acccuracy: %5.3f" % self._model.score(xTrain, yTrain))
+
         else:
             self._model=super(LinearBidModel, self).loadSavedModel(self._modelFile)
 
@@ -284,6 +286,11 @@ class LinearBidModel(BidModelInterface):
             valPredictionWriter = ResultWriter()
             valPredictionWriter.writeResult(filename="predictValidate.csv", data=predicted)
             print("\n\nPrediction acc on validation set: %f5.3" % metrics.accuracy_score(yValidate, predicted))
+            ce = Evaluator.ClickEvaluator()
+            ce.printClickPredictionScore(predicted, yValidate)
+            ce.printRMSE(predicted, yValidate)
+            ce.roc_results_plot(yValidate, predicted, False)
+
         else:
             print("Error: No model was trained in this instance....")
 
