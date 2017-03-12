@@ -54,9 +54,11 @@ class XGBoostBidModel(BidModelInterface):
         xgdmat = xgb.DMatrix(xTrain)
         y_pred = self._model.predict(xgdmat)
 
-        y_pred = [1 if i>0.12 else 0 for i in y_pred]
-
+        ClickEvaluator().roc_results_plot(yTrain, y_pred, False)
+        ClickEvaluator().printRMSE(y_pred, yTrain)
+        y_pred = [1 if i > 0.12 else 0 for i in y_pred]
         ClickEvaluator().printClickPredictionScore(y_pred, yTrain)
+
 
         sns.set(font_scale = 1.5)
         # xgb.plot_importance(self._model)
@@ -148,7 +150,9 @@ class XGBoostBidModel(BidModelInterface):
 
         y_pred = self.__estimateClick(validateDF)
 
-        y_pred = [1 if i>=0.7 else 0 for i in y_pred]
+        ClickEvaluator().roc_results_plot(yValidate, y_pred, False)
+        ClickEvaluator().printRMSE(y_pred, yValidate)
+        y_pred = [1 if i >= 0.5 else 0 for i in y_pred]
         ClickEvaluator().printClickPredictionScore(y_pred, yValidate)
 
         # sns.set(font_scale = 1.5)
@@ -160,35 +164,6 @@ class XGBoostBidModel(BidModelInterface):
         # importance_frame.plot(kind='barh', x='Feature', figsize=(8, 8), color='orange')
 
 
-
-    # def tunelinearBaseBid(self, testDF):
-    #     print("Setting up XGBoost for Test set")
-    #     y_pred = self.__estimateClick(testDF)
-    #
-    #     y_pred = [1 if i >= 0.07 else 0 for i in y_pred]
-    #
-    #     avgCTR = np.count_nonzero(testDF.click) / testDF.shape[0]
-    #     myEvaluator = Evaluator.Evaluator()
-    #
-    #     bestCTR = -1
-    #     bestBidPrice = -1
-    #     for i in range(10, 300):
-    #         bidprice = BidEstimator().linearBidPrice(y_pred, i, avgCTR)
-    #         bids = np.stack([testDF['bidid'], bidprice], axis=1)
-    #
-    #         bids = pd.DataFrame(bids, columns=['bidid', 'bidprice'])
-    #
-    #         # print("Estimated bid price: ", bids.bidprice.ix[0])
-    #
-    #         resultDict = myEvaluator.computePerformanceMetricsDF(25000 * 1000, bids, validateDF)
-    #         myEvaluator.printResult()
-    #         ctr = resultDict['click'] / resultDict['won']
-    #
-    #         if ctr > bestCTR:
-    #             bestCTR = ctr
-    #             bestBidPrice = i
-    #
-    #     print("Best CTR: %.3f \nPrice: %d" %(bestCTR, bestBidPrice))
 
     def tunelinearBaseBid(self, testDF):
         print("Setting up XGBoost for Test set")
@@ -314,8 +289,8 @@ if __name__ == "__main__":
     click_pred = XGBoostBidModel(X_column, Y_column)
     # click_pred.gridSearch(trainDF)
     click_pred.trainModel(trainDF)
-    # click_pred.validateModel(validateDF)
-    click_pred.tunelinearBaseBid(validateDF)
+    click_pred.validateModel(validateDF)
+    # click_pred.tunelinearBaseBid(validateDF)
     # click_pred.getBidPrice(validateDF)
 
 
