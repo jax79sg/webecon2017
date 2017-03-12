@@ -6,6 +6,7 @@ import LinearBidModel
 import FMBidModel
 import pandas as pd
 from XGBoostBidModel import XGBoostBidModel
+from LinearBidModel_v2 import LinearBidModel_v2
 
 def exeConstantBidModel(validationData, trainData=None, train=False, writeResult2CSV=False):
     # Constant Bidding Model
@@ -57,7 +58,6 @@ def exeUniformRandomBidModel(validationData, trainData=None, writeResult2CSV=Fal
     myEvaluator.printResult()
 
 def exeXGBoostBidModel(validationData, trainData=None, writeResult2CSV=False):
-
     Y_column = 'click'
     X_column = list(trainDF)
     unwanted_Column = ['click', 'bidid', 'bidprice', 'payprice', 'userid', 'IP', 'url', 'creative', 'keypage']
@@ -89,11 +89,34 @@ def exeLogisticRegressionBidModel(validationData=None, trainData=None, writeResu
     lrBidModel.trainModel(trainData, retrain=True, modelFile="LogisticRegression.pkl")
     # lrBidModel.gridSearchandCrossValidate(trainData.getDataFrame())
 
-    bids = lrBidModel.getBidPrice(validationData)
+    # TODO Fix the missing bidid in onehot
+    # bids = lrBidModel.getBidPrice(validationData)
+    # if writeResult2CSV:
+    #     ipinyouWriter.ResultWriter().writeResult("LRbidModelresult.csv", bids)
+    # myEvaluator = Evaluator.Evaluator()
+    # myEvaluator.computePerformanceMetricsDF(25000*1000, bids, validationData)
+    # myEvaluator.printResult()
+
+def exeLogisticRegressionBidModel_v2(validationReader=None, trainReader=None, writeResult2CSV=False):
+    trainOneHotData, trainY = trainReader.getOneHotData()
+    validationOneHotData, valY = validationReader.getOneHotData(
+        train_cols=trainOneHotData.columns.get_values().tolist())
+
+    X_train = trainOneHotData
+    Y_train = trainY['click']
+    X_val = validationOneHotData
+    Y_val = valY['click']
+
+    lbm = LinearBidModel_v2(cBudget=272.412385 * 1000, avgCTR=0.2)
+    lbm.trainModel(X_train, Y_train)
+    # lbm.gridSearchandCrossValidate(X_train, Y_train)
+    bids = lbm.getBidPrice(X_val)
+
     if writeResult2CSV:
-        ipinyouWriter.ResultWriter().writeResult("LRbidModelresult.csv", bids)
+        ipinyouWriter.ResultWriter().writeResult("resultLogisticRegressionBidModel.csv", bids)
+
     myEvaluator = Evaluator.Evaluator()
-    myEvaluator.computePerformanceMetricsDF(25000*1000, bids, validationData)
+    myEvaluator.computePerformanceMetricsDF(25000 * 1000, bids, Y_val)
     myEvaluator.printResult()
 
 def exeSGDBidModel(validationData=None, trainData=None, writeResult2CSV=False):
@@ -179,6 +202,8 @@ print("Reading dataset...")
 reader_encoded = ipinyouReader.ipinyouReaderWithEncoding()
 trainDF, validateDF, testDF = reader_encoded.getTrainValidationTestDF_V2(trainset, validationset, testset)
 
+trainReader = ipinyouReader.ipinyouReader(trainset)
+validationReader = ipinyouReader.ipinyouReader(validationset)
 
 # # Execute Constant Bid Model
 # print("== Constant bid model")
@@ -199,6 +224,10 @@ trainDF, validateDF, testDF = reader_encoded.getTrainValidationTestDF_V2(trainse
 # # Execute LR Bid Model
 # print("============ Logistic Regression bid model")
 # exeLogisticRegressionBidModel(validationData=validateDF, trainData=trainDF, writeResult2CSV=True)
+#
+# # Execute LR Bid Model (Use One-hot Encoding)
+# print("============ Logistic Regression bid model (Use One-hot Encoding)")
+# exeLogisticRegressionBidModel_v2(validationReader=validationReader, trainReader=trainReader, writeResult2CSV=True)
 #
 # # Execute SDG Bid Model
 # print("============ SGD bid model")
