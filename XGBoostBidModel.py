@@ -54,7 +54,7 @@ class XGBoostBidModel(BidModelInterface):
         xgdmat = xgb.DMatrix(xTrain)
         y_pred = self._model.predict(xgdmat)
 
-        ClickEvaluator().roc_results_plot(yTrain, y_pred, False)
+        ClickEvaluator().clickROC(yTrain, y_pred, False)
         ClickEvaluator().printRMSE(y_pred, yTrain)
         y_pred = [1 if i > 0.12 else 0 for i in y_pred]
         ClickEvaluator().printClickPredictionScore(y_pred, yTrain)
