@@ -4,9 +4,11 @@ import time
 import numpy as np
 from sklearn import metrics
 import matplotlib.pyplot as plt
-from sklearn.metrics import roc_curve, auc, mean_squared_error
+import seaborn as sns #because seaborn has more beautiful plots
+from sklearn.metrics import roc_curve, auc #roc_auc_score as AUC
 
 class Evaluator():
+
     def computePerformanceMetricsDF(self, budget, ourBidsDF, goldlabelsDF,verbose=False):
 
         self.resultDict = defaultdict(float)
@@ -101,11 +103,26 @@ class ClickEvaluator():
 
         return p[i], r[i], f1[i]#, (clicked/np.count_nonzero(y_Pred))
 
+    def clickProbHistogram(self, pred_prob,color='g',title='Predicted probabilities',imgpath='',showGraph=False):
+        plt.figure()
+        # the histogram of the data
+        n, bins, patches = plt.hist(pred_prob, 100, normed=True, facecolor=color, alpha=0.75)
+        plt.xlabel('Probability')
+        plt.ylabel('Frequency')
+        plt.title(title)
+        if imgpath:
+            plt.savefig(imgpath)
+
+        if showGraph:
+            plt.show()
+        return n,bins,patches
+
     # Plot data https://vkolachalama.blogspot.co.uk/2016/05/keras-implementation-of-mlp-neural.html
-    def roc_results_plot(self, y_true, y_pred_prob, showGraph=True):
+    def clickROC(self,y_true, y_pred_prob,imgpath='',showGraph=False):
         fpr, tpr, _ = roc_curve(y_true, y_pred_prob)
         roc_auc = auc(fpr, tpr)
-        if showGraph:
+
+        if imgpath or showGraph:
             plt.figure()
             plt.plot(fpr, tpr, label='ROC curve (area = %0.2f)' % roc_auc)
             plt.plot([0, 1], [0, 1], 'k--')
@@ -113,10 +130,16 @@ class ClickEvaluator():
             plt.ylim([0.0, 1.05])
             plt.xlabel('False Positive Rate')
             plt.ylabel('True Positive Rate')
-            plt.title('Receiver operating characteristic curve')
+            plt.title('Receiver operating characteristic curve (AUC={0:.4f})'.format(roc_auc))
 
+        if imgpath:
+            plt.savefig(imgpath)
+
+        if showGraph:
             plt.show()
+
         print('AUC: %f' % roc_auc)
+        return roc_auc
 
     def printRMSE(self, y_Pred, y_Gold):
         mse = mean_squared_error(y_Gold, y_Pred)

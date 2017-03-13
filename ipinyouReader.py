@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import re
 
 class ipinyouReader():
     def __init__(self, filename, header=0):
@@ -38,7 +39,7 @@ class ipinyouReader():
                                            'advertiser',#21
                                            'usertag'])  #22
 
-    def getOneHotData(self,train_cols=[]):
+    def getOneHotDatav1(self, train_cols=[]):
         """ Return categorical data in one-hot encoding format, remove other columns."""
 
         ### Create new data frame with columns split for combined columns
@@ -66,7 +67,86 @@ class ipinyouReader():
                         'urlid', 'slotid', 'slotprice', 'bidprice', 'payprice', 'usertag'], axis=1, inplace=True)
 
         ### get the y values too
-        y_values=source_df[['click','bidprice','payprice']]
+        y_values = source_df[['click', 'bidprice', 'payprice']]
+
+        ### if we are using an existing column def (i.e we are processing test/validation data)
+        if len(train_cols) > 0:
+            new_onehot_df = pd.DataFrame(data=onehot_df, columns=train_cols)
+            new_onehot_df.fillna(0, inplace=True)  # Fill any NaNs
+            return new_onehot_df, y_values
+        else:
+            return onehot_df, y_values
+
+    def getOneHotData(self,train_cols=[],exclude_domain=True,domain_keep_prob=0.05):
+        """ Return categorical data in one-hot encoding format, remove other columns."""
+
+        ### Create new data frame with columns split for combined columns
+        source_df = self.__dataframe.copy()
+        ## useragent split
+        source_df['user_platform'] = source_df.useragent.str.split('_').str.get(0)
+        source_df['user_browser'] = source_df.useragent.str.split('_').str.get(1)
+        ## ip split
+        source_df['ip_block'] = source_df.IP.str.split('.').str.get(0)
+
+        ## domain narrowing skewed data
+        if exclude_domain == False:
+            # if we are using an existing column def (i.e we are processing test/validation data)
+            if len(train_cols) > 0:
+                domain_regex = re.compile('^domain_')
+                train_domains=[domain.split('_')[1] for domain in train_cols if domain_regex.search(domain)]
+                mask_train_domains=source_df['domain'].isin(train_domains)
+                source_df['domain'].where(pd.isnull(source_df['domain'].mask(mask_train_domains)) == True, "othertoofew", inplace=True)
+            else:
+                domain_counts=source_df['domain'].value_counts()
+                cutoff_threshold=int(domain_keep_prob * len(domain_counts))
+                if domain_keep_prob == 1.0:
+                    print('Keep (all) {} number of unique domains'.format(cutoff_threshold))
+                else:
+                    print('Keep {} number of unique domains'.format(cutoff_threshold))
+                    count_threshold=domain_counts[cutoff_threshold]
+                    print('Cut domain data at less than {} frequency'.format(count_threshold))
+                    #this gives a df of same shape where the entry is value_count -- source_df['domain'].map(source_df['domain'].value_counts())
+                    source_df['domain'].where(source_df['domain'].map(domain_counts) > count_threshold, "othertoofew",inplace=True) #will end up with > 100 being left ~1633/24972 on full DS
+
+            ### one hot encoding for relevant columns
+            ## simple columns
+            onehot_df = pd.get_dummies(source_df, columns=['weekday', 'hour',  # ])
+                                                           'user_platform', 'user_browser', 'ip_block',
+                                                           'region', 'city', 'adexchange','domain',
+                                                           'slotwidth', 'slotheight', 'slotvisibility', 'slotformat',
+                                                           'creative', 'keypage', 'advertiser',
+                                                           ])
+            #onehot_df = pd.get_dummies(onehot_df, prefix='domain',columns=['domain', ]) # need to explicitly prefix
+            #onehot_df = pd.get_dummies(onehot_df, columns=['domain', ]).astype(np.uint16) # can't use this directly with get_dummies with full dataset, too high cardinality (24972) OOM in pandas
+        else: #leave out domain
+            ### one hot encoding for relevant columns
+            ## simple columns
+            onehot_df = pd.get_dummies(source_df, columns=['weekday', 'hour',  # ])
+                                                           'user_platform', 'user_browser', 'ip_block',
+                                                           'region', 'city', 'adexchange',
+                                                           'slotwidth', 'slotheight', 'slotvisibility', 'slotformat',
+                                                           'creative', 'keypage', 'advertiser',
+                                                           ])
+        # usertags
+        onehot_df = onehot_df.join(source_df.usertag.astype(str).str.strip('[]').str.get_dummies(','))#.astype(np.uint16))
+
+        #Drop these non-categorical data
+        drop_cols=['bidid', 'logtype', 'userid', 'useragent', 'IP', 'url',
+                            'urlid', 'slotid', 'slotprice', 'bidprice', 'payprice', 'usertag',
+                            ]
+        y_cols=['bidid']
+        if 'click' in source_df.columns: # i.e there is click data in hte dataset
+            ### add this to drop cols
+            drop_cols.append('click')
+            y_cols+=['click','bidprice','payprice']
+
+        if exclude_domain:
+            drop_cols.append('domain')
+
+        ### Drop these non-categorical data
+        onehot_df.drop(drop_cols, axis=1, inplace=True)
+        ### take these as y
+        y_values = source_df[y_cols]
 
         ### if we are using an existing column def (i.e we are processing test/validation data)
         if len(train_cols) > 0:
@@ -295,8 +375,6 @@ class ipinyouReaderWithEncoding():
         return train, validation, test
 
         # print("dict", dict)
-
-
 
 # reader_encoded = ipinyouReaderWithEncoding()
 # reader_encoded.getTrainValidationTestDD("../dataset/debug.csv", "../dataset/debug.csv", "../dataset/test.csv")
