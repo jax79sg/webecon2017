@@ -46,7 +46,7 @@ from BidPriceEstimator import BidEstimator
 
 class CNNBidModel(BidModelInterface):
 
-    def __init__(self, trainX,trainY,valX,valY,class_weights_mu=2.2,batch_size=32,total_epochs=20,learning_rate=0.0001):
+    def __init__(self, trainX,trainY,valX=None,valY=None,testX=None,testbidids=None,class_weights_mu=2.2,batch_size=32,total_epochs=20,learning_rate=0.0001,shuffle=False,reserve_val=True):
         self.class_weights_mu = class_weights_mu
         self.batch_size = batch_size
         self.total_epochs = total_epochs
@@ -54,6 +54,9 @@ class CNNBidModel(BidModelInterface):
         self.timestr = time.strftime("%Y%m%d-%H%M%S")
         self.model_checkpoint_filepath = "./SavedCNNModels/Keras-CNN-chkpt-" + self.timestr + ".hdf5"
         self.model_config_filepath = "./SavedCNNModels/Keras-CNN-model-" + self.timestr + ".json"
+        self.bids_output_filepath = "./SavedCNNModels/Keras-CNN-testbids-" + self.timestr + ".csv"
+        self.shuffle=shuffle
+        self.reserve_val = reserve_val
 
         #class weights
         self.train_class_weight = self.__create_class_weight(trainY['click'])
@@ -62,67 +65,58 @@ class CNNBidModel(BidModelInterface):
         ## Further process data into model input formats
         self.X_train = np.expand_dims(trainX.as_matrix(), axis=1)
         self.X_val = np.expand_dims(valX.as_matrix(), axis=1)
-
+        self.X_test = np.expand_dims(testX.as_matrix(), axis=1)
         ## Dimension params
         self.output_dim = nb_classes = 2
         self.input_dim = len(trainX.columns)
+
+        ## Y process
         self.Y_train=trainY['click'].as_matrix()
-        self.Y_val = valY['click'].as_matrix()
         self.Y_click_train = to_categorical(self.Y_train, nb_classes)
+        self.Y_val = valY['click'].as_matrix()
         self.Y_click_val = to_categorical(self.Y_val, nb_classes)
 
-    # def getBidPrice(self, testDF):
-    #     # print("Setting up XGBoost for Test set")
-    #     # xTest = testDF[self.X_column]
-    #     #
-    #     # xgdmat = xgb.DMatrix(xTest)
-    #     # y_pred = self._model.predict(xgdmat)
-    #     #
-    #     # # y_pred = [1 if i >= 0.07 else 0 for i in y_pred]
-    #     #
-    #     # # bidprice = BidEstimator().linearBidPrice(y_pred, base_bid=220, avg_ctr=0.2)
-    #     # bidprice = BidEstimator().linearBidPrice_mConfi(y_pred, base_bid=240, variable_bid=100, m_conf=0.8)
-    #     #
-    #     # bids = np.stack([testDF['bidid'], bidprice], axis=1)
-    #     # bids = pd.DataFrame(bids, columns=['bidid', 'bidprice'])
-    #
-    #     return bids
-    #
-    #
-    #
+        ## Panda frames for bidids
+        self.bidids_test = testbidids
+        self.gold_val = valY
+
+    def getBidPrice(self,y_prob,base_bid,slotprices,pred_thresh=0.5):
+        avg_ctr = ClickEvaluator().compute_avgCTR(self.Y_train)
+        print("Train avgCTR = {}".format(avg_ctr))
+
+        bid_estimator = BidEstimator()
+        #bids = bid_estimator.linearBidPrice(y_pred, 50, avg_ctr)
+        #TODO: could add option for alternate  bid strats
+        bids = bid_estimator.linearBidPrice_variation(y_prob,base_bid,avg_ctr,slotprices,pred_thresh)
+        print(bids)
+        # format bids into bidids pandas frame
+        bids_df = self.gold_val[['bidid']].copy()
+        bids_df['bidprice'] = bids
+        ipinyouWriter.ResultWriter().writeResult(self.bids_output_filepath, bids_df)
+        return bids_df
+
+    def gridSearchBidPrice(self, y_prob, slotprices):
+        print("=== Get best bid prices")
+        avg_ctr = ClickEvaluator().compute_avgCTR(self.Y_train)
+        print("Train avgCTR = {}".format(avg_ctr))
+
+        bid_estimator = BidEstimator()
+        # TODO: could add option for alternate  bid strats
+        best_pred_thresh, best_base_bid = bid_estimator.gridSearch_linearBidPrice_variation(y_prob, avg_ctr, slotprices,self.gold_val)
+
+        # bids = bid_estimator.linearBidPrice(y_pred, 50, avg_ctr)
+        #bids = bid_estimator.linearBidPrice_variation(y_prob, base_bid, avg_ctr, slotprices, pred_thresh)
+        #print(bids)
+        # format bids
+        # bidids_pd_val = validationData[['bidid']].copy()
+        # est_bids_df = format_bids_output(bids, bidids_pd_val)
+
+        return best_pred_thresh,best_base_bid
 
     def trainModel(self):
 
         print("=== Train click model")
         click_pred_model=self.__trainClickPredModel()
-        # print("Setting up XGBoost for Training: X and Y")
-        # xTrain = trainDF[self.X_column]
-        # yTrain = trainDF[self.Y_column]
-        #
-        # # print(xTrain.columns)
-        # print ("No of features in input matrix: %d" % len(xTrain.columns))
-        #
-        # optimised_params = {'eta': 0.1, 'seed':0, 'subsample': 0.8, 'colsample_bytree': 0.8,
-        #              'objective': 'binary:logistic', 'max_depth':3, 'min_child_weight':3, 'learning_rate': 0.045}
-        # xgdmat = xgb.DMatrix(xTrain, yTrain) # Create our DMatrix to make XGBoost more efficient
-        # self._model = xgb.train(optimised_params, xgdmat, num_boost_round=432,  verbose_eval=False)
-        #
-        # print("Importance: ", self._model.get_fscore())
-        # xgdmat = xgb.DMatrix(xTrain)
-        # y_pred = self._model.predict(xgdmat)
-        #
-        # y_pred = [1 if i>0.12 else 0 for i in y_pred]
-        #
-        # ClickEvaluator().printClickPredictionScore(y_pred, yTrain)
-        #
-        # sns.set(font_scale = 1.5)
-        # # xgb.plot_importance(self._model)
-        #
-        # fscore = self._model.get_fscore()
-        # importance_frame = pd.DataFrame({'Importance': list(fscore.values()), 'Feature': list(fscore.keys())})
-        # importance_frame.sort_values(by='Importance', inplace=True)
-        # importance_frame.plot(kind='barh', x='Feature', figsize=(8, 8), color='orange')
-        # plt.show()
 
     def __trainClickPredModel(self):
 
@@ -143,9 +137,9 @@ class CNNBidModel(BidModelInterface):
         # model.add(MaxPooling1D(pool_length=2, stride=None, border_mode='same'))
         model.add(AveragePooling1D(pool_length=2, stride=None, border_mode='same'))
         # add a new conv1d on top
-        model.add(Convolution1D(256, 3, border_mode='same', init='lecun_uniform', activation='relu', ))
+        # model.add(Convolution1D(256, 3, border_mode='same', init='glorot_uniform', activation='relu', )) #on the fence about effect
 
-        # model.add(AveragePooling1D(pool_length=2, stride=None, border_mode='same'))
+        #model.add(AveragePooling1D(pool_length=2, stride=None, border_mode='same')) #worse if added
 
         # # add a new conv1d on top AUC: 0.851369 with glorot uniform
         # model.add(Convolution1D(128, 3, border_mode='same',init='glorot_uniform',activation='relu',))
@@ -164,7 +158,7 @@ class CNNBidModel(BidModelInterface):
 
         # We add a vanilla hidden layer:
         model.add(Dense(256, init='glorot_uniform'))
-        model.add(Dropout(0.05))  # 0.1 seems good, but is it overfitting?
+        model.add(Dropout(0.2))  # 0.1 seems good, but is it overfitting?
         model.add(Activation('relu'))
 
         # # We project onto a single unit output layer, and squash it with a sigmoid:
@@ -188,6 +182,12 @@ class CNNBidModel(BidModelInterface):
         # compile the model
         model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
 
+        self.click_pred_model = model
+
+        #actually run training
+        self.trainClickPredModelRunTraining()
+
+    def trainClickPredModelRunTraining(self):
         ### Train the model
         # saves the model weights after each epoch if the validation loss decreased
         checkpointer = ModelCheckpoint(filepath=self.model_checkpoint_filepath, verbose=1, save_best_only=True)
@@ -196,14 +196,29 @@ class CNNBidModel(BidModelInterface):
         earlystopper = EarlyStopping(monitor='val_loss', patience=2, verbose=0)
 
         ## For click pred only
-        history = model.fit(self.X_train, [self.Y_click_train], \
-                            batch_size=self.batch_size, nb_epoch=self.total_epochs,
-                            validation_data=(self.X_val, [self.Y_click_val]),
-                            class_weight=self.train_class_weight,
-                            callbacks=[checkpointer, earlystopper],
-                            verbose=2 # 0 silent, 1 verbose, 2 one log line per epoch
-                            )  # TODO add callbacks, shuffle?
-        self.click_pred_model=model
+        if self.reserve_val: #we are reserving validation set for later
+            # do val split on training data automatically
+            print("== Training model using training data for validation split (validation set will be held out)")
+            history = self.click_pred_model.fit(self.X_train, [self.Y_click_train], \
+                                batch_size=self.batch_size, nb_epoch=self.total_epochs,
+                                validation_split=0.1,
+                                shuffle=self.shuffle,
+                                class_weight=self.train_class_weight,
+                                callbacks=[checkpointer, earlystopper],
+                                verbose=2  # 0 silent, 1 verbose, 2 one log line per epoch
+                                )  # TODO add callbacks, shuffle?
+        else:
+            print("== Training model using training + validation data for validation")
+            history = self.click_pred_model.fit(self.X_train, [self.Y_click_train], \
+                                batch_size=self.batch_size, nb_epoch=self.total_epochs,
+                                validation_data=(self.X_val, [self.Y_click_val]),
+                                shuffle=self.shuffle,
+                                class_weight=self.train_class_weight,
+                                callbacks=[checkpointer, earlystopper],
+                                verbose=2  # 0 silent, 1 verbose, 2 one log line per epoch
+                                )  # TODO add callbacks, shuffle?
+
+
 
     def __create_class_weight(self,trainY):
         mu=self.class_weights_mu
@@ -220,143 +235,12 @@ class CNNBidModel(BidModelInterface):
 
         return class_weight
 
-    def __load_trained_model(model,weights_path):
+    def loadSavedModel(self,weights_path):
         #model = create_model()
-        model.load_weights(weights_path)
+        self.click_pred_model.load_weights(weights_path)
 
-    # def gridSearch(self, trainDF):
-    #     # print("Setting up XGBoost for GridSearch: X and Y")
-    #     # xTrain = trainDF[self.X_column]
-    #     # yTrain = trainDF[self.Y_column]
-    #     #
-    #     # print(xTrain.columns)
-    #     # print("No of features in input matrix: %d" % len(xTrain.columns))
-    #     #
-    #     # ## Setup Grid Search parameter
-    #     # param_grid = {'max_depth': [3, 4],
-    #     #               'min_child_weight': [2, 3],
-    #     #               'subsample': [0.7, 0.8, 0.9],
-    #     #               'learning_rate': [0.04, 0.045]
-    #     #               }
-    #     #
-    #     # ind_params = {'n_estimators': 1000,
-    #     #               'seed': 0,
-    #     #               'colsample_bytree': 0.8,
-    #     #               'objective': 'binary:logistic',
-    #     #               'base_score': 0.5,
-    #     #               'colsample_bylevel': 1,
-    #     #               'gamma': 0,
-    #     #               'max_delta_step': 0,
-    #     #               'missing': None,
-    #     #               'reg_alpha': 0,
-    #     #               'reg_lambda': 1,
-    #     #               'scale_pos_weight': 1,
-    #     #               'silent': True,
-    #     #               }
-    #     #
-    #     # optimized_GBM = GridSearchCV(xgb.XGBClassifier(**ind_params),
-    #     #                              param_grid=param_grid,
-    #     #                              scoring='accuracy',
-    #     #                              cv=5,
-    #     #                              n_jobs=-1,
-    #     #                              error_score='raise')
-    #     #
-    #     # model = optimized_GBM.fit(xTrain, yTrain)
-    #     # # check the accuracy on the training set
-    #     # print("\n\nTraining acccuracy: %5.3f" % model.score(xTrain, yTrain))
-    #     # y_pred = model.predict(xTrain)
-    #     # p, r, f1, _ = metrics.precision_recall_fscore_support(yTrain, y_pred)
-    #     # # print(p)
-    #     # print("Number of 1: ", np.count_nonzero(y_pred))
-    #     # print("Number of 0: ", len(y_pred) - np.count_nonzero(y_pred))
-    #     # for i in range(len(p)):
-    #     #     print("Precision: %5.3f \tRecall: %5.3f \tF1: %5.3f" % (p[i], r[i], f1[i]))
-    #     # scores = optimized_GBM.grid_scores_
-    #     # # print(type(scores))
-    #     # for i in range(len(scores)):
-    #     #     print(optimized_GBM.grid_scores_[i])
-    #
-    # def __estimateClick(self, df):
-    #     # xTest = df[self.X_column]
-    #     # print("No of features in input matrix: %d" % len(xTest.columns))
-    #     #
-    #     # xgdmat = xgb.DMatrix(xTest)
-    #     # y_pred = self._model.predict(xgdmat)
-    #
-    #     return y_pred
-    #
-    #
-    # # def tunelinearBaseBid(self, testDF):
-    # #     print("Setting up XGBoost for Test set")
-    # #     y_pred = self.__estimateClick(testDF)
-    # #
-    # #     # y_pred = [1 if i >= 0.07 else 0 for i in y_pred]
-    # #
-    # #     # avgCTR = np.count_nonzero(testDF.click) / testDF.shape[0]
-    # #     myEvaluator = Evaluator.Evaluator()
-    # #
-    # #     bestCTR = -1
-    # #     bestBidPrice = -1
-    # #
-    # #     print("y_pred mean: ", np.mean(y_pred))
-    # #
-    # #     x = np.arange(0.5, 0.9, 0.05)
-    # #     # for i in x:
-    # #     for i in range(220, 260):
-    # #         print("================= i : ", i)
-    # #         # bidprice = BidEstimator().linearBidPrice(y_pred, i, 0.2)
-    # #         bidprice = BidEstimator().linearBidPrice_mConfi(y_pred, i, 90, 0.8)
-    # #         bids = np.stack([testDF['bidid'], bidprice], axis=1)
-    # #
-    # #         bids = pd.DataFrame(bids, columns=['bidid', 'bidprice'])
-    # #
-    # #         # print("Estimated bid price: ", bids.bidprice.ix[0])
-    # #
-    # #         resultDict = myEvaluator.computePerformanceMetricsDF(25000 * 1000, bids, validateDF)
-    # #         myEvaluator.printResult()
-    # #         ctr = resultDict['click'] / resultDict['won']
-    # #
-    # #         if ctr > bestCTR:
-    # #             bestCTR = ctr
-    # #             bestBidPrice = i
-    # #
-    # #     print("Best CTR: %.5f \nPrice: %d" %(bestCTR, bestBidPrice))
-    # #
-    # #
-    # # def tuneConfidenceBaseBid(self, testDF):
-    # #     print("Setting up XGBoost for Test set")
-    # #     y_pred = self.__estimateClick(testDF)
-    # #
-    # #     y_pred = [1 if i >= 0.7 else 0 for i in y_pred]
-    # #
-    # #     # print("number of 1 here: ", sum(y_pred))
-    # #     # avgCTR = np.count_nonzero(testDF.click) / testDF.shape[0]
-    # #     myEvaluator = Evaluator.Evaluator()
-    # #
-    # #     bestCTR = -1
-    # #     bestBidPrice = -1
-    # #     for i in range(300, 301):
-    # #         bidprice = BidEstimator().confidenceBidPrice(y_pred, -1, i)
-    # #
-    # #         # print("total bid price: ", sum(bidprice))
-    # #         # print("total bid submitted: ", np.count_nonzero(bidprice))
-    # #         # print("Number of $0 bid", bidprice.count(0))
-    # #
-    # #         bids = np.stack([testDF['bidid'], bidprice], axis=1)
-    # #
-    # #         bids = pd.DataFrame(bids, columns=['bidid', 'bidprice'])
-    # #
-    # #         # print("Estimated bid price: ", bids.bidprice.ix[0])
-    # #
-    # #         resultDict = myEvaluator.computePerformanceMetricsDF(25000 * 1000, bids, validateDF)
-    # #         myEvaluator.printResult()
-    # #         ctr = resultDict['click'] / resultDict['won']
-    # #
-    # #         if ctr > bestCTR:
-    # #             bestCTR = ctr
-    # #             bestBidPrice = i
-    # #
-    # #     print("Best CTR: %.5f \nPrice: %d" % (bestCTR, bestBidPrice))
+    def saveModel(self):
+        print("saveModel not implemented as built into Keras")
 
     def predictClickProbs(self,X):
         click_probs = self.click_pred_model.predict(X)
@@ -364,21 +248,30 @@ class CNNBidModel(BidModelInterface):
 
 if __name__ == "__main__":
     ### Data
-    TRAIN_FILE_PATH = "../dataset/train_cleaned_prune.csv" #"./data.pruned/train_cleaned_prune.csv"  # "../dataset/train.csv"
-    VALIDATION_FILE_PATH = "../dataset/validation_cleaned_prune.csv" #"./data.pruned/validation_cleaned_prune.csv"  # "../dataset/validation.csv"
-    TEST_FILE_PATH = "./data/test.csv"
+    TRAIN3_FILE_PATH = "./data.pruned/train_cleaned_prune.csv"  #"./data/medium_train_cleaned_prune.csv" #"../dataset/train_cleaned_prune.csv" #"./data/larger_train_cleaned_prune.csv" #"../dataset/train_cleaned_prune.csv" #"./data.pruned/train_cleaned_prune.csv"  # "../dataset/train.csv"
+    TRAIN_FILE_PATH = "../dataset/train_cleaned_prune.csv" #"./data/larger_train_cleaned_prune.csv" #"../dataset/train_cleaned_prune.csv" #"./data.pruned/train_cleaned_prune.csv"  # "../dataset/train.csv"
+    TRAIN2_FILE_PATH = "" #./data/small_train_cleaned_prune.csv"  # "./data/larger_train_cleaned_prune.csv" #"../dataset/train_cleaned_prune.csv" #"./data.pruned/train_cleaned_prune.csv"  # "../dataset/train.csv"
+    VALIDATION_FILE_PATH = "./data/validation_cleaned.csv" #"" #"../dataset/validation_cleaned_prune.csv" #"./data.pruned/validation_cleaned_prune.csv"  # "../dataset/validation.csv" "" #
+    TEST_FILE_PATH = "../dataset/test.csv"
+
+    ### preproc trained Data
+    PREPROC_X_TRAIN_FILE_PATH = "" #"./data/onehot_X_nodomain_merged_train_validation_cleaned.csv"  #"./data/onehot_X_merged_train_validation_cleaned.csv" #"./data.pruned/train_cleaned_prune.csv"  # "../dataset/train.csv"
+    PREPROC_Y_TRAIN_FILE_PATH = "" #"./data/onehot_Y_nodomain_merged_train_validation_cleaned.csv" #"./data/onehot_Y_merged_train_validation_cleaned.csv"
+    PREPROC_TEST_FILE_PATH = "" #"./data/test.csv"
 
     # Stratification
     NUM_K_FOLDS = 1
     SHUFFLE_INPUT = True
     RANDOM_SEED = None  # or int
+    RESERVE_VAL = True # Reserve validation set for further tuning, in CTR training just use train splits
+    #VALIDATION_SPLIT=0.2
 
     ### Weights
     CLASS_WEIGHTS_MU = 2.2  # 0.8 #0.15
 
     ### Features
     EXCLUDE_DOMAIN=False
-    DOMAIN_KEEP_PROB=0.05
+    DOMAIN_KEEP_PROB=0.05 #1.0
 
     ### Training
     BATCH_SIZE = 32
@@ -387,35 +280,74 @@ if __name__ == "__main__":
     LEARNING_RATE = 0.0001  # adam #for SGD 0.003
 
     ### bidding strategy
-    BASE_PRICE = 300
+    #BASE_PRICE = 300
 
     ##########
     ## Load Dataset
-    print("==== Reading in train and validation set...")
-    trainReader = ipinyouReader.ipinyouReader(TRAIN_FILE_PATH)
-    # trainData = trainReader.getTrainData()
+    if PREPROC_X_TRAIN_FILE_PATH and PREPROC_Y_TRAIN_FILE_PATH:
+        print("==== Reading in pre-processed trainset...")
+        XtrainReader = ipinyouReader.ipinyouReader(PREPROC_X_TRAIN_FILE_PATH)
+        trainOneHotData = XtrainReader.getDataFrame()
+        YtrainReader = ipinyouReader.ipinyouReader(PREPROC_Y_TRAIN_FILE_PATH)
+        trainY = YtrainReader.getDataFrame()
+        print("Train set - No. of one-hot features: {}".format(len(trainOneHotData.columns)))
+    else:
+        print("==== Reading in train set...")
+        print("Train file: {}".format(TRAIN_FILE_PATH))
+        trainReader = ipinyouReader.ipinyouReader(TRAIN_FILE_PATH)
+        # trainData = trainReader.getTrainData()
+
+        ## onehot
+        print("== Convert to one-hot encoding...")
+        trainOneHotData, trainY = trainReader.getOneHotData(exclude_domain=EXCLUDE_DOMAIN,domain_keep_prob=DOMAIN_KEEP_PROB)#0.05)
+        print("Train set - No. of one-hot features: {}".format(len(trainOneHotData.columns)))
+
+
+    if TRAIN2_FILE_PATH:
+        print("Train2 file: {}".format(VALIDATION_FILE_PATH))
+        train2Reader = ipinyouReader.ipinyouReader(TRAIN2_FILE_PATH)
+        train2OneHotData, train2Y = train2Reader.getOneHotData(train_cols=trainOneHotData.columns.get_values().tolist(),
+                                                             exclude_domain=EXCLUDE_DOMAIN,
+                                                             domain_keep_prob=DOMAIN_KEEP_PROB)  # 0.05)
+        print("Train2 set - No. of one-hot features: {}".format(len(train2OneHotData.columns)))
 
     if VALIDATION_FILE_PATH:
+        print("==== Reading in validation set...")
+        print("Validation file: {}".format(VALIDATION_FILE_PATH))
         validationReader = ipinyouReader.ipinyouReader(VALIDATION_FILE_PATH)
-        # validationData = validationReader.getTestData()
-
-    ## onehot
-    print("==== Convert to one-hot encoding...")
-    trainOneHotData, trainY = trainReader.getOneHotData(exclude_domain=EXCLUDE_DOMAIN,domain_keep_prob=DOMAIN_KEEP_PROB)#0.05)
-    print("Train set - No. of one-hot features: {}".format(len(trainOneHotData.columns)))
-
-    if VALIDATION_FILE_PATH:
         valOneHotData, valY = validationReader.getOneHotData(train_cols=trainOneHotData.columns.get_values().tolist(),exclude_domain=EXCLUDE_DOMAIN,domain_keep_prob=DOMAIN_KEEP_PROB)#0.05)
         print("Validation set - No. of one-hot features: {}".format(len(valOneHotData.columns)))
 
+    if TEST_FILE_PATH:
+        print("==== Reading in test set...")
+        print("Test file: {}".format(TEST_FILE_PATH))
+        testReader = ipinyouReader.ipinyouReader(TEST_FILE_PATH)
+        testOneHotData,testbidids = testReader.getOneHotData(train_cols=trainOneHotData.columns.get_values().tolist(),exclude_domain=EXCLUDE_DOMAIN,domain_keep_prob=DOMAIN_KEEP_PROB)#0.05)
+        print("Test set - No. of one-hot features: {}".format(len(testOneHotData.columns)))
+
+
     print("==== Train CNN model...")
-    bidmodel=CNNBidModel(trainOneHotData, trainY,valOneHotData,valY,class_weights_mu=CLASS_WEIGHTS_MU,batch_size=BATCH_SIZE,total_epochs=TOTAL_EPOCHS,learning_rate=LEARNING_RATE)
+    bidmodel = CNNBidModel(trainOneHotData, trainY,valOneHotData,valY, testOneHotData,testbidids,class_weights_mu=CLASS_WEIGHTS_MU,batch_size=BATCH_SIZE, total_epochs=TOTAL_EPOCHS, learning_rate=LEARNING_RATE, shuffle=SHUFFLE_INPUT,reserve_val=RESERVE_VAL)
     bidmodel.trainModel()
+    print("== Reload to best weights saved...")
+    bidmodel.loadSavedModel(bidmodel.model_checkpoint_filepath)
+
+    #if TRAIN2_FILE_PATH:
+        # TODO: for this to work properly need the usertag features from here too truly?Whether it's as a seperate model
+        # print("==== Train2 CNN model...")
+        # bidmodel2 = CNNBidModel(train2OneHotData, train2Y,valOneHotData,valY, testOneHotData,testbidids,class_weights_mu=CLASS_WEIGHTS_MU,batch_size=BATCH_SIZE, total_epochs=TOTAL_EPOCHS, learning_rate=LEARNING_RATE, shuffle=SHUFFLE_INPUT,reserve_val=RESERVE_VAL)
+        # bidmodel.X_train = bidmodel2.X_train
+        # bidmodel.Y_click_train = bidmodel2.Y_click_train
+        # bidmodel.X_val = bidmodel2.X_val
+        # bidmodel.Y_click_val = bidmodel2.Y_click_val
+        # bidmodel.trainClickPredModelRunTraining()
+        # print("== Reload to best weights saved...")
+        # bidmodel.loadSavedModel(bidmodel.model_checkpoint_filepath)
 
     print("==== Predict clicks...")
     click_eval = ClickEvaluator()
     prob_click_train=bidmodel.predictClickProbs(bidmodel.X_train)
-    if VALIDATION_FILE_PATH:
+    if RESERVE_VAL:
         prob_click_val = bidmodel.predictClickProbs(bidmodel.X_val)
 
         print("== Click prob distributions...")
@@ -434,16 +366,33 @@ if __name__ == "__main__":
         # Gold
         Y_1_click_train = bidmodel.Y_click_train[:, 1]
         Y_1_click_val = bidmodel.Y_click_val[:, 1]
+        slotprices_val = validationReader.getDataFrame()['slotprice'].as_matrix().astype(int)
+        pred_thresh,base_bid=bidmodel.gridSearchBidPrice(prob_click_val[:,1],slotprices_val)
 
-        for pred_threshold in np.arange(0.0,1.05,0.05):
-            print("= pred_threshold = {}".format(pred_threshold))
-            # Pick pred_threshold for click=1 as click=1
-            pred_1_click_train = np.greater_equal(prob_click_train[:, 1], pred_threshold).astype(int)
-            pred_1_click_val = np.greater_equal(prob_click_val[:, 1], pred_threshold).astype(int)
+        print("== Get bid price for test data using pred_thresh {0:.2f} and base_bid {1} ...".format(pred_thresh,base_bid))
+        bids_df=bidmodel.getBidPrice(prob_click_val[:,1], base_bid, slotprices_val, pred_thresh)
 
-            # Validation
-            click_precision, click_recall, click_f1score = \
-                click_eval.printClickPredictionScore(y_Pred=pred_1_click_val, y_Gold=Y_1_click_val)
+
+        # for pred_threshold in np.arange(0.1,1.00,0.1): #np.arange(0.05,1.00,0.05):
+        #     print("= pred_threshold = {}".format(pred_threshold))
+        #     # Pick pred_threshold for click=1 as click=1
+        #     pred_1_click_train = np.greater_equal(prob_click_train[:, 1], pred_threshold).astype(int)
+        #     pred_1_click_val = np.greater_equal(prob_click_val[:, 1], pred_threshold).astype(int)
+        #
+        #     # on Train
+        #     print("True Train CTR: {0:.4f}".format(click_eval.compute_avgCTR(Y_1_click_train)))
+        #     print("Pred Train CTR: {0:.4f}".format(click_eval.compute_avgCTR(pred_1_click_train)))
+        #
+        #     # on Validation
+        #     print("True Val   CTR: {0:.4f}".format(click_eval.compute_avgCTR(Y_1_click_val)))
+        #     print("Pred Val   CTR: {0:.4f}".format(click_eval.compute_avgCTR(pred_1_click_val)))
+        #
+        #     # Validation
+        #     click_precision, click_recall, click_f1score = \
+        #         click_eval.printClickPredictionScore(y_Pred=pred_1_click_val, y_Gold=Y_1_click_val)
+        #     base_bid=80
+        #     bids=bidmodel.getBidPrice(prob_click_val[:,1],base_bid,slotprices_val,pred_threshold)
+
 
 
 

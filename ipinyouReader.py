@@ -132,12 +132,12 @@ class ipinyouReader():
 
         #Drop these non-categorical data
         drop_cols=['bidid', 'logtype', 'userid', 'useragent', 'IP', 'url',
-                            'urlid', 'slotid', 'slotprice', 'bidprice', 'payprice', 'usertag',
+                            'urlid', 'slotid', 'slotprice', 'usertag',
                             ]
         y_cols=['bidid']
         if 'click' in source_df.columns: # i.e there is click data in hte dataset
             ### add this to drop cols
-            drop_cols.append('click')
+            drop_cols+=['click','bidprice','payprice']
             y_cols+=['click','bidprice','payprice']
 
         if exclude_domain:

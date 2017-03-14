@@ -36,6 +36,18 @@ class Evaluator():
 
 
             self.resultDict={'won':sum(wonbid),'click':sum(clicks),'spend':sum(spend),'trimmed_bids':-i-1}
+            if self.resultDict['won'] != 0:
+                self.resultDict['CTR']=self.resultDict['click'] / self.resultDict['won']
+                self.resultDict['CPM']=self.resultDict['spend'] / (self.resultDict['won'] / 1000)
+            else:
+                self.resultDict['CTR']=None
+                self.resultDict['CPM']=None
+
+            if self.resultDict['click'] != 0:
+                self.resultDict['CPC'] = self.resultDict['spend'] / self.resultDict['click']
+            else:
+                self.resultDict['CPC'] = None
+
         else:
             print("Bid Ids did not match in arrays")
 
@@ -147,3 +159,12 @@ class ClickEvaluator():
         rmse = mse ** 0.5
 
         print("RMSE: %.5f" %rmse)
+
+    def compute_avgCTR(self,clicks_dataset):
+        # True Train Click = 1 = 1986
+        # True Val Click = 1 = 220
+        # True Train CTR = 0.0007454510034874044
+        # True Val CTR = 0.0007430976362739734
+        #clicks_dataset is a np array with 1 if click==1 or 0 if click==0
+        avgCTR = clicks_dataset.sum()/len(clicks_dataset)
+        return avgCTR
