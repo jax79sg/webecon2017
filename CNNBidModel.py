@@ -55,6 +55,7 @@ class CNNBidModel(BidModelInterface):
         self.model_checkpoint_filepath = "./SavedCNNModels/Keras-CNN-chkpt-" + self.timestr + ".hdf5"
         self.model_config_filepath = "./SavedCNNModels/Keras-CNN-model-" + self.timestr + ".json"
         self.bids_output_filepath = "./SavedCNNModels/Keras-CNN-testbids-" + self.timestr + ".csv"
+        self.bids_tuning_perf_filepath = "./SavedCNNModels/Keras-CNN-bidtuning-" + self.timestr + ".csv"
         self.shuffle=shuffle
         self.reserve_val = reserve_val
 
@@ -102,7 +103,8 @@ class CNNBidModel(BidModelInterface):
 
         bid_estimator = BidEstimator()
         # TODO: could add option for alternate  bid strats
-        best_pred_thresh, best_base_bid = bid_estimator.gridSearch_linearBidPrice_variation(y_prob, avg_ctr, slotprices,self.gold_val)
+        best_pred_thresh, best_base_bid, perf_df = bid_estimator.gridSearch_linearBidPrice_variation(y_prob, avg_ctr, slotprices,self.gold_val)
+        ipinyouWriter.ResultWriter().writeResult(self.bids_tuning_perf_filepath, perf_df)
 
         # bids = bid_estimator.linearBidPrice(y_pred, 50, avg_ctr)
         #bids = bid_estimator.linearBidPrice_variation(y_prob, base_bid, avg_ctr, slotprices, pred_thresh)

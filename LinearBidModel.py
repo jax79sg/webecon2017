@@ -289,7 +289,7 @@ class LinearBidModel(BidModelInterface):
             ce = Evaluator.ClickEvaluator()
             ce.printClickPredictionScore(predicted, yValidate)
             ce.printRMSE(predicted, yValidate)
-            ce.roc_results_plot(yValidate, predicted, False)
+            ce.clickROC(yValidate, predicted, False)
 
         else:
             print("Error: No model was trained in this instance....")

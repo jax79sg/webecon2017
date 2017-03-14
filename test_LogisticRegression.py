@@ -135,7 +135,7 @@ predicted_prob=print(model.predict_proba(xValidate))
 ce = ClickEvaluator()
 ce.printClickPredictionScore(predicted, yValidate)
 ce.printRMSE(predicted, yValidate)
-ce.roc_results_plot(yValidate, predicted, False)
+ce.clickROC(yValidate, predicted, showGraph=False)
 
 print("Writing to csv")
 valPredictionWriter=ResultWriter()

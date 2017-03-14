@@ -121,6 +121,7 @@ class BidEstimator():
         ## Determine 'best' params from 'CTR', 'click'/total_gold_clicks, 1-'spend'/max_budget,
         total_gold_clicks = len(gold_df[gold_df['click'] == 1])
         perf_score = performance_pd.apply(lambda x: x['CTR'] * 0.5 + (x['click']/ total_gold_clicks)*0.3 + (1-x['spend']/budget) * 0.2, axis=1)
+        performance_pd['blended_score'] = perf_score
         print("GRID SEARCH PERF SCORE")
         print(perf_score)
         best_idx=perf_score.idxmax(axis=0)
@@ -131,4 +132,4 @@ class BidEstimator():
         best_pred_thresh=performance_pd['pred_threshold'][best_idx]
         best_base_bid=performance_pd['base_bid'][best_idx]
 
-        return best_pred_thresh,best_base_bid
+        return best_pred_thresh,best_base_bid,performance_pd
