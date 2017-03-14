@@ -2,12 +2,12 @@
 Web Economics assignment
 
 Data files to use for final submission:
-./data.final/
-test.csv
-train1_cleaned_prune.csv # from Chun Siong's commit 2d30afcc2aebc5ff560e8e07668fb3af038dc279
-train2_cleaned_prune.csv
-train3_cleaned_prune.csv
-validation_cleaned.csv
+   * ./data.final/
+   * test.csv
+   * train1_cleaned_prune.csv # from Chun Siong's commit 2d30afcc2aebc5ff560e8e07668fb3af038dc279
+   * train2_cleaned_prune.csv
+   * train3_cleaned_prune.csv
+   * validation_cleaned.csv
 
 Some stats on train.csv for reference
 
