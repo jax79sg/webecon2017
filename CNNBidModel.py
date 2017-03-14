@@ -9,6 +9,7 @@ import ujson as json
 #import json
 from collections import OrderedDict
 from collections import Counter
+import re
 
 import seaborn as sns
 import math
@@ -103,15 +104,11 @@ class CNNBidModel(BidModelInterface):
 
         bid_estimator = BidEstimator()
         # TODO: could add option for alternate  bid strats
-        best_pred_thresh, best_base_bid, perf_df = bid_estimator.gridSearch_linearBidPrice_variation(y_prob, avg_ctr, slotprices,self.gold_val)
-        ipinyouWriter.ResultWriter().writeResult(self.bids_tuning_perf_filepath, perf_df)
+        best_pred_thresh, best_base_bid, perf_df = bid_estimator.gridSearch_bidPrice(y_prob, avg_ctr, slotprices,self.gold_val,bidpriceest_model='linearBidPrice')
+        ipinyouWriter.ResultWriter().writeResult(re.sub('.csv','-linearBidPrice.csv',self.bids_tuning_perf_filepath), perf_df) #
+        best_pred_thresh, best_base_bid, perf_df = bid_estimator.gridSearch_bidPrice(y_prob, avg_ctr, slotprices,self.gold_val,bidpriceest_model='linearBidPrice_variation')
+        ipinyouWriter.ResultWriter().writeResult(re.sub('.csv','-linearBidPrice_variation.csv',self.bids_tuning_perf_filepath), perf_df)
 
-        # bids = bid_estimator.linearBidPrice(y_pred, 50, avg_ctr)
-        #bids = bid_estimator.linearBidPrice_variation(y_prob, base_bid, avg_ctr, slotprices, pred_thresh)
-        #print(bids)
-        # format bids
-        # bidids_pd_val = validationData[['bidid']].copy()
-        # est_bids_df = format_bids_output(bids, bidids_pd_val)
 
         return best_pred_thresh,best_base_bid
 

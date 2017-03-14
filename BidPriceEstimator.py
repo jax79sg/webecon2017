@@ -94,27 +94,46 @@ class BidEstimator():
 
         return bids_click_thresh_mask.filled().astype(int)
 
-    def gridSearch_linearBidPrice_variation(self,y_prob, avg_ctr, slotprices,gold_df,budget=25000000):
+    def gridSearch_bidPrice(self,y_prob, avg_ctr, slotprices,gold_df,budget=25000000,bidpriceest_model='linearBidPrice',):
         # TODO this could be generalised to other models too.
         performance_list = []
-        for pred_threshold in np.arange(0.05,1.00,0.05): #np.arange(0.1,1.00,0.1): #
-            print("== pred_threshold = {}".format(pred_threshold))
-            for base_bid in range(50,500,10):#range(100,300,10):
+        if bidpriceest_model == 'linearBidPrice':
+            for base_bid in range(50, 500, 10):  # range(100,300,10):
                 print(" = base_bid = {}".format(base_bid))
-                bids=self.linearBidPrice_variation(y_prob,base_bid,avg_ctr, slotprices,pred_threshold)
+                bids = self.linearBidPrice(y_prob, base_bid, avg_ctr)
                 # format bids into bidids pandas frame
                 est_bids_df = gold_df[['bidid']].copy()
                 est_bids_df['bidprice'] = bids
                 myEvaluator = Evaluator()
                 myEvaluator.computePerformanceMetricsDF(budget, est_bids_df, gold_df, verbose=True)
-                #myEvaluator.printResult()
-                myEvaluator.resultDict['pred_threshold']=pred_threshold
-                myEvaluator.resultDict['base_bid']=base_bid
-                #print(myEvaluator.resultDict)
-                performance_list+=[myEvaluator.resultDict]
+                # myEvaluator.printResult()
+                myEvaluator.resultDict['base_bid'] = base_bid
+                # print(myEvaluator.resultDict)
+                performance_list += [myEvaluator.resultDict]
+        elif bidpriceest_model == 'linearBidPrice_variation':
+            for pred_threshold in np.arange(0.05,1.00,0.05): #np.arange(0.1,1.00,0.1): #
+                print("== pred_threshold = {}".format(pred_threshold))
+                for base_bid in range(50,500,10):#range(100,300,10):
+                    print(" = base_bid = {}".format(base_bid))
+                    bids=self.linearBidPrice_variation(y_prob,base_bid,avg_ctr, slotprices,pred_threshold)
+                    # format bids into bidids pandas frame
+                    est_bids_df = gold_df[['bidid']].copy()
+                    est_bids_df['bidprice'] = bids
+                    myEvaluator = Evaluator()
+                    myEvaluator.computePerformanceMetricsDF(budget, est_bids_df, gold_df, verbose=True)
+                    #myEvaluator.printResult()
+                    myEvaluator.resultDict['pred_threshold']=pred_threshold
+                    myEvaluator.resultDict['base_bid']=base_bid
+                    #print(myEvaluator.resultDict)
+                    performance_list+=[myEvaluator.resultDict]
+        else:
+            print("bidpriceest_model '{}' not implemented yet".format(bidpriceest_model))
 
         ## stick performance metrics into pandas frame
-        performance_pd = pd.DataFrame(performance_list,columns=['base_bid', 'pred_threshold', 'won', 'click', 'spend', 'trimmed_bids', 'CTR', 'CPM', 'CPC'])
+        if bidpriceest_model == 'linearBidPrice':
+            performance_pd = pd.DataFrame(performance_list,columns=['base_bid', 'won', 'click', 'spend', 'trimmed_bids', 'CTR', 'CPM', 'CPC'])
+        elif bidpriceest_model == 'linearBidPrice_variation':
+            performance_pd = pd.DataFrame(performance_list, columns=['base_bid', 'pred_threshold', 'won', 'click', 'spend','trimmed_bids', 'CTR', 'CPM', 'CPC'])
         print("GRID SEARCH PERF TABLE")
         print(performance_pd)
 
@@ -129,7 +148,11 @@ class BidEstimator():
         print("best score {}".format(perf_score[best_idx]))
         print(performance_pd.loc[best_idx])
 
-        best_pred_thresh=performance_pd['pred_threshold'][best_idx]
-        best_base_bid=performance_pd['base_bid'][best_idx]
+        if bidpriceest_model == 'linearBidPrice':
+            best_base_bid = performance_pd['base_bid'][best_idx]
+            best_pred_thresh = 0
+        elif bidpriceest_model == 'linearBidPrice_variation':
+            best_pred_thresh=performance_pd['pred_threshold'][best_idx]
+            best_base_bid=performance_pd['base_bid'][best_idx]
 
         return best_pred_thresh,best_base_bid,performance_pd
