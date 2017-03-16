@@ -5,7 +5,7 @@ import numpy as np
 from sklearn import metrics
 import matplotlib.pyplot as plt
 import seaborn as sns #because seaborn has more beautiful plots
-from sklearn.metrics import roc_curve, auc #roc_auc_score as AUC
+from sklearn.metrics import roc_curve, auc, mean_squared_error #roc_auc_score as AUC
 
 class Evaluator():
 

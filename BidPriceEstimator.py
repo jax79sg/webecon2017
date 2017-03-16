@@ -126,6 +126,34 @@ class BidEstimator():
                     myEvaluator.resultDict['base_bid']=base_bid
                     #print(myEvaluator.resultDict)
                     performance_list+=[myEvaluator.resultDict]
+        elif bidpriceest_model == 'linearBidPrice_mConfi':
+            myEvaluator = Evaluator()
+
+            total_gold_clicks = len(gold_df[gold_df['click'] == 1])
+
+            basebid_grid = np.arange(180, 260, 5)
+            variable_grid = np.arange(0, 140, 5)
+            confi_grid = np.arange(0.4, 0.95, 0.025)
+            # basebid_grid = np.arange(220, 230, 5)
+            # variable_grid = np.arange(0, 20, 10)
+            # confi_grid = np.arange(0.85, 0.95, 0.05)
+
+            performance_list = []
+            for basebid in basebid_grid:
+                for variable in variable_grid:
+                    for confi in confi_grid:
+                        # bidprice = BidEstimator().linearBidPrice(y_pred, i, 0.2)
+                        bidprice = self.linearBidPrice_mConfi(y_prob, basebid, variable, confi)
+                        bids = np.stack([gold_df['bidid'], bidprice], axis=1)
+                        bids = pd.DataFrame(bids, columns=['bidid', 'bidprice'])
+
+                        resultDict = myEvaluator.computePerformanceMetricsDF(budget, bids, gold_df)
+                        resultDict['base_bid'] = basebid
+                        resultDict['pred_threshold'] = confi
+                        resultDict['variable_bid'] = variable
+
+                        # Store result Dict
+                        performance_list.append(resultDict)
         else:
             print("bidpriceest_model '{}' not implemented yet".format(bidpriceest_model))
 
@@ -134,6 +162,11 @@ class BidEstimator():
             performance_pd = pd.DataFrame(performance_list,columns=['base_bid', 'won', 'click', 'spend', 'trimmed_bids', 'CTR', 'CPM', 'CPC'])
         elif bidpriceest_model == 'linearBidPrice_variation':
             performance_pd = pd.DataFrame(performance_list, columns=['base_bid', 'pred_threshold', 'won', 'click', 'spend','trimmed_bids', 'CTR', 'CPM', 'CPC'])
+        elif bidpriceest_model == 'linearBidPrice_mConfi':
+            performance_pd = pd.DataFrame(performance_list,
+                                          columns=['base_bid', 'pred_threshold', 'variable_bid', 'won', 'click', 'spend',
+                                                   'trimmed_bids', 'CTR', 'CPM', 'CPC'])
+
         print("GRID SEARCH PERF TABLE")
         print(performance_pd)
 
@@ -154,5 +187,9 @@ class BidEstimator():
         elif bidpriceest_model == 'linearBidPrice_variation':
             best_pred_thresh=performance_pd['pred_threshold'][best_idx]
             best_base_bid=performance_pd['base_bid'][best_idx]
+        elif bidpriceest_model == 'linearBidPrice_mConfi':
+            best_pred_thresh=performance_pd['pred_threshold'][best_idx]
+            best_base_bid=performance_pd['base_bid'][best_idx]
+            best_variable_bid = performance_pd['variable_bid'][best_idx]
 
         return best_pred_thresh,best_base_bid,performance_pd
