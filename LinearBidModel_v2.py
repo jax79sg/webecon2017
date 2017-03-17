@@ -13,7 +13,7 @@ class LinearBidModel_v2(BidModelInterface):
         self._cBudget = cBudget
         self._avgCTR = avgCTR
 
-    def getBidPrice(self, allBidRequest):
+    def getBidPrice(self, allBidRequest, v_df):
         """
         1. Predict click=1 prob for entire test/validation set
             Considered as pCTR for each impression
@@ -31,9 +31,9 @@ class LinearBidModel_v2(BidModelInterface):
 
         bidprice = BidEstimator().linearBidPrice(pred, self._cBudget, self._avgCTR)
 
-        bids = np.stack([allBidRequest['bidid'], bidprice], axis=1)
+        bids = np.stack([v_df['bidid'], bidprice], axis=1)
         bids = pd.DataFrame(bids, columns=['bidid', 'bidprice'])
-
+        print(bids.info())
         return bids
 
     def trainModel(self, xTrain, yTrain):
@@ -45,7 +45,7 @@ class LinearBidModel_v2(BidModelInterface):
 
         ce = Evaluator.ClickEvaluator()
         ce.printRMSE(pred, yTrain)
-        ce.roc_results_plot(yTrain, pred, False)
+        ce.clickROC(yTrain, pred, False)
         pred = [1 if i >= 0.5 else 0 for i in pred]
         ce.printClickPredictionScore(pred, yTrain)
 
@@ -56,7 +56,7 @@ class LinearBidModel_v2(BidModelInterface):
 
         ce = Evaluator.ClickEvaluator()
         ce.printRMSE(pred, yValidate)
-        ce.roc_results_plot(yValidate, pred, False)
+        ce.clickROC(yValidate, pred, False)
         pred = [1 if i >= 0.5 else 0 for i in pred]
         ce.printClickPredictionScore(pred, yValidate)
 
