@@ -247,11 +247,13 @@ class CNNBidModel(BidModelInterface):
 
 if __name__ == "__main__":
     ### Data
-    TRAIN3_FILE_PATH = "./data.pruned/train_cleaned_prune.csv"  #"./data/medium_train_cleaned_prune.csv" #"../dataset/train_cleaned_prune.csv" #"./data/larger_train_cleaned_prune.csv" #"../dataset/train_cleaned_prune.csv" #"./data.pruned/train_cleaned_prune.csv"  # "../dataset/train.csv"
-    TRAIN_FILE_PATH = "../dataset/train_cleaned_prune.csv" #"./data/larger_train_cleaned_prune.csv" #"../dataset/train_cleaned_prune.csv" #"./data.pruned/train_cleaned_prune.csv"  # "../dataset/train.csv"
+    #TRAIN3_FILE_PATH = "./data.pruned/train_cleaned_prune.csv"  #"./data/medium_train_cleaned_prune.csv" #"../dataset/train_cleaned_prune.csv" #"./data/larger_train_cleaned_prune.csv" #"../dataset/train_cleaned_prune.csv" #"./data.pruned/train_cleaned_prune.csv"  # "../dataset/train.csv"
+    #TRAIN_FILE_PATH = "../dataset/train_cleaned_prune.csv" #"./data/larger_train_cleaned_prune.csv" #"../dataset/train_cleaned_prune.csv" #"./data.pruned/train_cleaned_prune.csv"  # "../dataset/train.csv"
+    #TRAIN_FILE_PATH = "./data/medium_train_cleaned_prune.csv"  # "./data/larger_train_cleaned_prune.csv" #"../dataset/train_cleaned_prune.csv" #"./data.pruned/train_cleaned_prune.csv"  # "../dataset/train.csv"
     TRAIN2_FILE_PATH = "" #./data/small_train_cleaned_prune.csv"  # "./data/larger_train_cleaned_prune.csv" #"../dataset/train_cleaned_prune.csv" #"./data.pruned/train_cleaned_prune.csv"  # "../dataset/train.csv"
-    VALIDATION_FILE_PATH = "./data/validation_cleaned.csv" #"" #"../dataset/validation_cleaned_prune.csv" #"./data.pruned/validation_cleaned_prune.csv"  # "../dataset/validation.csv" "" #
-    TEST_FILE_PATH = "../dataset/test.csv"
+    TRAIN_FILE_PATH = "./data.final/train3_cleaned_prune.csv"
+    VALIDATION_FILE_PATH = "./data.final/validation_cleaned.csv" #"" #"../dataset/validation_cleaned_prune.csv" #"./data.pruned/validation_cleaned_prune.csv"  # "../dataset/validation.csv" "" #
+    TEST_FILE_PATH = "./data.final/test.csv"
 
     ### preproc trained Data
     PREPROC_X_TRAIN_FILE_PATH = "" #"./data/onehot_X_nodomain_merged_train_validation_cleaned.csv"  #"./data/onehot_X_merged_train_validation_cleaned.csv" #"./data.pruned/train_cleaned_prune.csv"  # "../dataset/train.csv"

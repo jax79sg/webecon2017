@@ -9,6 +9,7 @@ import numpy as np
 from XGBoostBidModel import XGBoostBidModel
 from LinearBidModel_v2 import LinearBidModel_v2
 from BidPriceEstimator import BidEstimator
+from CNNBidModel import *
 
 def exeConstantBidModel(validationData, trainData=None, train=False, writeResult2CSV=False):
     # Constant Bidding Model
@@ -195,9 +196,9 @@ def exeFM_SGDBidModel(validationDataOneHot=None, trainDataOneHot=None, validatio
     myEvaluator.computePerformanceMetricsDF(25000*1000, bids, validationData)
     myEvaluator.printResult()
 
-def exeEnsemble_v1(testData, writeResult2CSV=False):
+def exeEnsemble_v1(validationDataPath, trainDataPath, testDataPath, validateDF,trainDF,testDF, writeResult2CSV=False):
     xg_y_pred = exeXGBoostBidModel(validationData=validateDF, trainData=trainDF, writeResult2CSV=False)
-    cnn_y_pred, slotprices = exeCNNBidModel(...)
+    cnn_y_pred = exeCNNBidModel(validationDataPath=validationset, trainDataPath=trainset, testDataPath=testset, writeResult2CSV=False)
     # fm_y_pred = exeFM_SGDBidModel(validationDataOneHot=validateDFonehot, trainDataOneHot=trainDFonehot, validationData=validateDF, writeResult2CSV=True)
 
     # Use XG's 0 when its threshold is below 0.75.
@@ -224,13 +225,87 @@ def exeEnsemble_v1(testData, writeResult2CSV=False):
     ce.printClickPredictionScore(y_pred, testData)
 
 
+def exeCNNBidModel(validationDataPath, trainDataPath, testDataPath, writeResult2CSV=False):
+    print("===== exeCNNBidModel start =====")
+
+    TRAIN_FILE_PATH=trainDataPath
+    VALIDATION_FILE_PATH = validationDataPath
+    TEST_FILE_PATH = testDataPath
+    SHUFFLE_INPUT = True
+    RESERVE_VAL = True # Reserve validation set for further tuning, in CTR training just use train splits
+
+    ### Weights
+    CLASS_WEIGHTS_MU = 2.2  # 0.8 #0.15
+
+    ### Features
+    EXCLUDE_DOMAIN=False
+    DOMAIN_KEEP_PROB=0.05 #1.0
+
+    ### Training
+    BATCH_SIZE = 32
+    TOTAL_EPOCHS = 20
+    LEARNING_RATE = 0.0001  # adam #for SGD 0.003
+
+    ##########
+    ## Load Dataset
+    print("==== Reading in train set...")
+    print("Train file: {}".format(TRAIN_FILE_PATH))
+    trainReader = ipinyouReader.ipinyouReader(TRAIN_FILE_PATH)
+
+    ## onehot
+    print("== Convert to one-hot encoding...")
+    trainOneHotData, trainY = trainReader.getOneHotData(exclude_domain=EXCLUDE_DOMAIN,domain_keep_prob=DOMAIN_KEEP_PROB)#0.05)
+    print("Train set - No. of one-hot features: {}".format(len(trainOneHotData.columns)))
+
+    print("==== Reading in validation set...")
+    print("Validation file: {}".format(VALIDATION_FILE_PATH))
+    validationReader = ipinyouReader.ipinyouReader(VALIDATION_FILE_PATH)
+    valOneHotData, valY = validationReader.getOneHotData(train_cols=trainOneHotData.columns.get_values().tolist(),exclude_domain=EXCLUDE_DOMAIN,domain_keep_prob=DOMAIN_KEEP_PROB)#0.05)
+    print("Validation set - No. of one-hot features: {}".format(len(valOneHotData.columns)))
+
+    print("==== Reading in test set...")
+    print("Test file: {}".format(TEST_FILE_PATH))
+    testReader = ipinyouReader.ipinyouReader(TEST_FILE_PATH)
+    testOneHotData, testbidids = testReader.getOneHotData(train_cols=trainOneHotData.columns.get_values().tolist(),
+                                                          exclude_domain=EXCLUDE_DOMAIN,
+                                                          domain_keep_prob=DOMAIN_KEEP_PROB)  # 0.05)
+    print("Test set - No. of one-hot features: {}".format(len(testOneHotData.columns)))
+
+    print("==== Train CNN model...")
+    bidmodel = CNNBidModel(trainOneHotData, trainY,valOneHotData,valY,testOneHotData,testbidids, class_weights_mu=CLASS_WEIGHTS_MU,batch_size=BATCH_SIZE, total_epochs=TOTAL_EPOCHS, learning_rate=LEARNING_RATE, shuffle=SHUFFLE_INPUT,reserve_val=RESERVE_VAL)
+    bidmodel.trainModel()
+    print("== Reload to best weights saved...")
+    bidmodel.loadSavedModel(bidmodel.model_checkpoint_filepath)
+
+
+    print("==== Predict clicks...")
+    click_eval = ClickEvaluator()
+    prob_click_train=bidmodel.predictClickProbs(bidmodel.X_train)
+    if RESERVE_VAL:
+        prob_click_val = bidmodel.predictClickProbs(bidmodel.X_val)
+
+        print("== Click prob distributions...")
+        # click=1 prediction as click = =1 probabilities
+        click1 = prob_click_val[bidmodel.Y_click_val[:, 1].astype(bool), 1]
+        n, bins, patches = click_eval.clickProbHistogram(pred_prob=click1,color='g',title='Predicted probabilities for clicks=1',imgpath="./SavedCNNModels/Keras-CNN-click1-" + bidmodel.timestr + ".jpg",showGraph=False)
+
+        # click=0 prediction as click=1 probabilities
+        click0 = prob_click_val[bidmodel.Y_click_val[:, 0].astype(bool), 1]
+        n, bins, patches = click_eval.clickProbHistogram(pred_prob=click0,color='r',title='Predicted probabilities for clicks=0',imgpath="./SavedCNNModels/Keras-CNN-click0-" + bidmodel.timestr + ".jpg",showGraph=False)
+
+        print("== ROC for click model...")
+        roc_auc = click_eval.clickROC(bidmodel.Y_click_val[:, 1], prob_click_val[:, 1],imgpath="./SavedCNNModels/Keras-CNN-ROC-" + bidmodel.timestr + ".jpg",showGraph=False)
+
+    print("===== exeCNNBidModel end =====")
+
+    return prob_click_val[:,1]
 
 # Read in train.csv to train the model
 # trainset = "../dataset/debug.csv"
 # validationset = "../dataset/debug.csv"
-trainset = "../dataset/train_cleaned_prune.csv"
-validationset = "../dataset/validation_cleaned_prune.csv"
-testset = "../dataset/combined.csv"
+trainset = "./data.final/train1_cleaned_prune.csv"
+validationset = "./data.final/validation_cleaned.csv"
+testset = "./data.final/test.csv"
 
 print("Reading dataset...")
 reader_encoded = ipinyouReader.ipinyouReaderWithEncoding()
@@ -255,13 +330,18 @@ validationReader = ipinyouReader.ipinyouReader(validationset)
 # print("== XGBoost bid model")
 # exeXGBoostBidModel(validationData=validateDF, trainData=trainDF, writeResult2CSV=False)
 #
+# Execute CNN Bid Model
+#print("== CNN bid model")
+#yPred_CNNBidModel = exeCNNBidModel(validationDataPath=validationset, trainDataPath=trainset, testDataPath=testset, writeResult2CSV=False)
+#print(yPred_CNNBidModel)
+
 # # Execute LR Bid Model
 # print("============ Logistic Regression bid model")
 # exeLogisticRegressionBidModel(validationData=validateDF, trainData=trainDF, writeResult2CSV=True)
 #
-# Execute LR Bid Model (Use One-hot Encoding)
-print("============ Logistic Regression bid model (Use One-hot Encoding)")
-exeLogisticRegressionBidModel_v2(validationReader=validationReader, trainReader=trainReader, writeResult2CSV=True)
+# # Execute LR Bid Model (Use One-hot Encoding)
+# print("============ Logistic Regression bid model (Use One-hot Encoding)")
+# exeLogisticRegressionBidModel_v2(validationReader=validationReader, trainReader=trainReader, writeResult2CSV=True)
 #
 # # Execute SDG Bid Model
 # print("============ SGD bid model")

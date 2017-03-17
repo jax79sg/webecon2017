@@ -88,7 +88,7 @@ class BidEstimator():
         # print(prune_tresh_mask)
         # bids_click_thresh_mask = np.ma.masked_array(bids_reserve_price_met.filled(), prune_tresh_mask) #this is for the alternative step 2.
         bids_click_thresh_mask = np.ma.masked_array(bids_reserve_price_met, prune_tresh_mask)
-        np.ma.set_fill_value(bids_click_thresh_mask, 0.0)
+        np.ma.set_fill_value(bids_click_thresh_mask, -1.0) #-1.0 as some payprice == 0 :|
         # print(bids_click_thresh_mask.filled()) # return with filled value i.e masked out values become 0
         print('bid total post-prob {0:.2f} prune  : {1}'.format(prune_thresh, int(bids_click_thresh_mask.filled().sum())))
 
