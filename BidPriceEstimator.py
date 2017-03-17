@@ -130,7 +130,18 @@ class BidEstimator():
             myEvaluator = Evaluator()
 
             total_gold_clicks = len(gold_df[gold_df['click'] == 1])
-
+            # best score 0.450834741010101
+            # base_bid            235.000000
+            # pred_threshold        0.900000
+            # variable_bid          0.000000
+            # won                 225.000000
+            # click                70.000000
+            # spend             21920.000000
+            # trimmed_bids          0.000000
+            # CTR                   0.311111
+            # CPM               97422.222222
+            # CPC                 313.142857
+            # blended_score         0.450835
             basebid_grid = np.arange(180, 260, 5)
             variable_grid = np.arange(0, 140, 5)
             confi_grid = np.arange(0.4, 0.95, 0.025)

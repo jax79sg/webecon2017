@@ -89,13 +89,12 @@ def exeLogisticRegressionBidModel(validationData=None, trainData=None, writeResu
     lrBidModel.trainModel(trainData, retrain=True, modelFile="LogisticRegression.pkl")
     # lrBidModel.gridSearchandCrossValidate(trainData.getDataFrame())
 
-    # TODO Fix the missing bidid in onehot
-    # bids = lrBidModel.getBidPrice(validationData)
-    # if writeResult2CSV:
-    #     ipinyouWriter.ResultWriter().writeResult("LRbidModelresult.csv", bids)
-    # myEvaluator = Evaluator.Evaluator()
-    # myEvaluator.computePerformanceMetricsDF(25000*1000, bids, validationData)
-    # myEvaluator.printResult()
+    bids = lrBidModel.getBidPrice(validationData)
+    if writeResult2CSV:
+        ipinyouWriter.ResultWriter().writeResult("LRbidModelresult.csv", bids)
+    myEvaluator = Evaluator.Evaluator()
+    myEvaluator.computePerformanceMetricsDF(25000*1000, bids, validationData)
+    myEvaluator.printResult()
 
 def exeLogisticRegressionBidModel_v2(validationReader=None, trainReader=None, writeResult2CSV=False):
     trainOneHotData, trainY = trainReader.getOneHotData()
@@ -110,13 +109,15 @@ def exeLogisticRegressionBidModel_v2(validationReader=None, trainReader=None, wr
     lbm = LinearBidModel_v2(cBudget=272.412385 * 1000, avgCTR=0.2)
     lbm.trainModel(X_train, Y_train)
     # lbm.gridSearchandCrossValidate(X_train, Y_train)
-    bids = lbm.getBidPrice(X_val)
+    # print (validationReader.getDataFrame().info())
+    v_df = validationReader.getDataFrame()
 
+    bids = lbm.getBidPrice(X_val, v_df)
     if writeResult2CSV:
         ipinyouWriter.ResultWriter().writeResult("resultLogisticRegressionBidModel.csv", bids)
 
     myEvaluator = Evaluator.Evaluator()
-    myEvaluator.computePerformanceMetricsDF(25000 * 1000, bids, Y_val)
+    myEvaluator.computePerformanceMetricsDF(25000 * 1000, bids, v_df)
     myEvaluator.printResult()
 
 def exeSGDBidModel(validationData=None, trainData=None, writeResult2CSV=False):
@@ -225,41 +226,41 @@ validationReader = ipinyouReader.ipinyouReader(validationset)
 # print("============ Logistic Regression bid model")
 # exeLogisticRegressionBidModel(validationData=validateDF, trainData=trainDF, writeResult2CSV=True)
 #
-# # Execute LR Bid Model (Use One-hot Encoding)
-# print("============ Logistic Regression bid model (Use One-hot Encoding)")
-# exeLogisticRegressionBidModel_v2(validationReader=validationReader, trainReader=trainReader, writeResult2CSV=True)
+# Execute LR Bid Model (Use One-hot Encoding)
+print("============ Logistic Regression bid model (Use One-hot Encoding)")
+exeLogisticRegressionBidModel_v2(validationReader=validationReader, trainReader=trainReader, writeResult2CSV=True)
 #
 # # Execute SDG Bid Model
 # print("============ SGD bid model")
 # exeSGDBidModel(validationData=validateDF, trainData=trainDF, writeResult2CSV=True)
 
-# Execute FM Bid Model
-print("============ Factorisation Machine bid model....setting up")
-combinedDF=testDF
-X_column = list(combinedDF)
-unwanted_Column = ['click', 'bidid', 'bidprice', 'payprice', 'userid', 'IP', 'url', 'creative', 'keypage']
-[X_column.remove(i) for i in unwanted_Column]
-final_x = X_column[0]
-for i in range(1, len(X_column)):
-    final_x = final_x + ' + ' + X_column[i]
-
-print("FastFM classification only accepts -1 and 1 as Gold labels. Changing gold labels from 0 to -1")
-combinedDF['click'] = combinedDF['click'].map({0: -1, 1: 1})
-validateDF['click'] = validateDF['click'].map({0: -1, 1: 1})
-# combinedDF.to_csv(path_or_buf="combinedDF.csv")
-print("Performing one hot encoding of combined set")
-combinedDF = pd.get_dummies(data=combinedDF,sparse=True, columns=X_column)
-print("combinedDF Cols:", list(combinedDF))
-print("Split back into train and val sets...gonna take a while")
-trainDFonehot=combinedDF.ix[0:9928]
-validateDFonehot=combinedDF.ix[9929:]
-# trainDF.to_csv(path_or_buf="trainDF.csv")
-# validateDF.to_csv(path_or_buf="validateDF.csv")
-
-print("============ FM ALS bid model")
-exeFM_ALSBidModel(validationDataOneHot=validateDFonehot, trainDataOneHot=trainDFonehot, validationData=validateDF, writeResult2CSV=True)
-
-print("============ FM SGD bid model")
-#No idea why validateDF  got mutated after calling exeFM_ALSBidModel, so have to transform back.
-validateDF['click'] = validateDF['click'].map({0: -1, 1: 1})
-exeFM_SGDBidModel(validationDataOneHot=validateDFonehot, trainDataOneHot=trainDFonehot, validationData=validateDF, writeResult2CSV=True)
+# # Execute FM Bid Model
+# print("============ Factorisation Machine bid model....setting up")
+# combinedDF=testDF
+# X_column = list(combinedDF)
+# unwanted_Column = ['click', 'bidid', 'bidprice', 'payprice', 'userid', 'IP', 'url', 'creative', 'keypage']
+# [X_column.remove(i) for i in unwanted_Column]
+# final_x = X_column[0]
+# for i in range(1, len(X_column)):
+#     final_x = final_x + ' + ' + X_column[i]
+#
+# print("FastFM classification only accepts -1 and 1 as Gold labels. Changing gold labels from 0 to -1")
+# combinedDF['click'] = combinedDF['click'].map({0: -1, 1: 1})
+# validateDF['click'] = validateDF['click'].map({0: -1, 1: 1})
+# # combinedDF.to_csv(path_or_buf="combinedDF.csv")
+# print("Performing one hot encoding of combined set")
+# combinedDF = pd.get_dummies(data=combinedDF,sparse=True, columns=X_column)
+# print("combinedDF Cols:", list(combinedDF))
+# print("Split back into train and val sets...gonna take a while")
+# trainDFonehot=combinedDF.ix[0:9928]
+# validateDFonehot=combinedDF.ix[9929:]
+# # trainDF.to_csv(path_or_buf="trainDF.csv")
+# # validateDF.to_csv(path_or_buf="validateDF.csv")
+#
+# print("============ FM ALS bid model")
+# exeFM_ALSBidModel(validationDataOneHot=validateDFonehot, trainDataOneHot=trainDFonehot, validationData=validateDF, writeResult2CSV=True)
+#
+# print("============ FM SGD bid model")
+# #No idea why validateDF  got mutated after calling exeFM_ALSBidModel, so have to transform back.
+# validateDF['click'] = validateDF['click'].map({0: -1, 1: 1})
+# exeFM_SGDBidModel(validationDataOneHot=validateDFonehot, trainDataOneHot=trainDFonehot, validationData=validateDF, writeResult2CSV=True)

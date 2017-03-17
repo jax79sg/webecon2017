@@ -45,8 +45,10 @@ class XGBoostBidModel(BidModelInterface):
         # print(xTrain.columns)
         print ("No of features in input matrix: %d" % len(xTrain.columns))
 
-        optimised_params = {'eta': 0.1, 'seed':0, 'subsample': 0.8, 'colsample_bytree': 0.8,
-                     'objective': 'binary:logistic', 'max_depth':3, 'min_child_weight':3, 'learning_rate': 0.045}
+        optimised_params = {'eta': 0.1, 'seed':0, 'subsample': 0.55, 'colsample_bytree': 0.8,
+                            'objective': 'binary:logistic', 'max_depth':3, 'min_child_weight':1,
+                            'learning_rate': 0.042, 'reg_alpha': 0.05, 'scoring':'roc_auc', 'n_estimators': 5000,
+                            'base_score': 0.5}
         xgdmat = xgb.DMatrix(xTrain, yTrain) # Create our DMatrix to make XGBoost more efficient
         self._model = xgb.train(optimised_params, xgdmat, num_boost_round=432,  verbose_eval=False)
 
@@ -56,12 +58,12 @@ class XGBoostBidModel(BidModelInterface):
 
         ClickEvaluator().clickROC(yTrain, y_pred, False)
         ClickEvaluator().printRMSE(y_pred, yTrain)
-        y_pred = [1 if i > 0.12 else 0 for i in y_pred]
+        y_pred = [1 if i > 0.5 else 0 for i in y_pred]
         ClickEvaluator().printClickPredictionScore(y_pred, yTrain)
 
 
         sns.set(font_scale = 1.5)
-        # xgb.plot_importance(self._model)
+        xgb.plot_importance(self._model, max_num_features=15)
 
         fscore = self._model.get_fscore()
         importance_frame = pd.DataFrame({'Importance': list(fscore.values()), 'Feature': list(fscore.keys())})
@@ -78,22 +80,26 @@ class XGBoostBidModel(BidModelInterface):
         print("No of features in input matrix: %d" % len(xTrain.columns))
 
         ## Setup Grid Search parameter
-        param_grid = {'max_depth': [3, 4],
-                      'min_child_weight': [2, 3],
-                      'subsample': [0.7, 0.8, 0.9],
-                      'learning_rate': [0.04, 0.045]
+        param_grid = {
+                      'max_depth': [3],
+                      'min_child_weight': [1],
+                      'subsample': [0.55],
+                      'colsample_bytree': [0.8],
+                      'learning_rate': [0.042],
+                      'gamma': [0],
+                      'reg_alpha': [0.05]
                       }
 
-        ind_params = {'n_estimators': 1000,
+        ind_params = {'n_estimators': 5000,
                       'seed': 0,
-                      'colsample_bytree': 0.8,
+                      # 'colsample_bytree': 0.8,
                       'objective': 'binary:logistic',
                       'base_score': 0.5,
                       'colsample_bylevel': 1,
-                      'gamma': 0,
+                      # 'gamma': 0,
                       'max_delta_step': 0,
                       'missing': None,
-                      'reg_alpha': 0,
+                      # 'reg_alpha': 0,
                       'reg_lambda': 1,
                       'scale_pos_weight': 1,
                       'silent': True,
@@ -117,7 +123,7 @@ class XGBoostBidModel(BidModelInterface):
         for i in range(len(p)):
             print("Precision: %5.3f \tRecall: %5.3f \tF1: %5.3f" % (p[i], r[i], f1[i]))
         scores = optimized_GBM.grid_scores_
-        # print(type(scores))
+        print("Best Param: ", optimized_GBM.best_params_)
         for i in range(len(scores)):
             print(optimized_GBM.grid_scores_[i])
 
@@ -152,8 +158,24 @@ class XGBoostBidModel(BidModelInterface):
 
         ClickEvaluator().clickROC(yValidate, y_pred, False)
         ClickEvaluator().printRMSE(y_pred, yValidate)
+        # ClickEvaluator().clickProbHistogram(y_pred, showGraph=True)
+
+        click1 = y_pred[validateDF.click == 1]
+        n, bins, patches = ClickEvaluator().clickProbHistogram(pred_prob=click1, color='g',
+                                                         title='Predicted probabilities for clicks=1',
+                                                         # imgpath="./SavedCNNModels/Keras-CNN-click1-" + bidmodel.timestr + ".jpg",
+                                                         showGraph=True)
+
+        # click=0 prediction as click=1 probabilities
+        click0 = y_pred[validateDF.click == 0]
+        n, bins, patches = ClickEvaluator().clickProbHistogram(pred_prob=click0, color='r',
+                                                         title='Predicted probabilities for clicks=0',
+                                                         # imgpath="./SavedCNNModels/Keras-CNN-click0-" + bidmodel.timestr + ".jpg",
+                                                         showGraph=True)
+
         y_pred = [1 if i >= 0.5 else 0 for i in y_pred]
         ClickEvaluator().printClickPredictionScore(y_pred, yValidate)
+
 
         # sns.set(font_scale = 1.5)
         # xgb.plot_importance(final_gb)
@@ -286,8 +308,8 @@ if __name__ == "__main__":
     click_pred = XGBoostBidModel(X_column, Y_column)
     # click_pred.gridSearch(trainDF)
     click_pred.trainModel(trainDF)
-    # click_pred.validateModel(validateDF)
-    click_pred.tunelinearBaseBid(validateDF)
+    click_pred.validateModel(validateDF)
+    # click_pred.tunelinearBaseBid(validateDF)
     # click_pred.getBidPrice(validateDF)
 
 
