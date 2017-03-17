@@ -195,7 +195,7 @@ def exeFM_SGDBidModel(validationDataOneHot=None, trainDataOneHot=None, validatio
     myEvaluator.computePerformanceMetricsDF(25000*1000, bids, validationData)
     myEvaluator.printResult()
 
-def exeEnsemble_v1(validationData):
+def exeEnsemble_v1(testData, writeResult2CSV=False):
     xg_y_pred = exeXGBoostBidModel(validationData=validateDF, trainData=trainDF, writeResult2CSV=False)
     cnn_y_pred, slotprices = exeCNNBidModel(...)
     # fm_y_pred = exeFM_SGDBidModel(validationDataOneHot=validateDFonehot, trainDataOneHot=trainDFonehot, validationData=validateDF, writeResult2CSV=True)
@@ -209,16 +209,19 @@ def exeEnsemble_v1(validationData):
     be = BidEstimator()
     bidprice = be.linearBidPrice_mConfi(y_pred, 230, 100, prune_thresh)
     # bidprice = be.linearBidPrice_variation(y_pred, 80, 0.2, slotprices=slotprices, prune_thresh=prune_thresh)
-    bids = np.stack([validationData['bidid'], bidprice], axis=1)
+    bids = np.stack([testData['bidid'], bidprice], axis=1)
     bids = pd.DataFrame(bids, columns=['bidid', 'bidprice'])
 
+    if writeResult2CSV:
+        ipinyouWriter.ResultWriter().writeResult("resultEnsemble_v1.csv", bids)
+
     myEvaluator = Evaluator.Evaluator()
-    myEvaluator.computePerformanceMetricsDF(25000*1000, bids, validationData)
+    myEvaluator.computePerformanceMetricsDF(25000*1000, bids, testData)
 
     # Force CNN result to 1 and 0 for F1 score
     y_pred = [1 if i >= prune_thresh else 0 for i in y_pred]
     ce = Evaluator.ClickEvaluator()
-    ce.printClickPredictionScore(y_pred, validationData)
+    ce.printClickPredictionScore(y_pred, testData)
 
 
 
