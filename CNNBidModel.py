@@ -82,7 +82,7 @@ class CNNBidModel(BidModelInterface):
         self.bidids_test = testbidids
         self.gold_val = valY
 
-    def getBidPrice(self,y_prob,base_bid,slotprices,pred_thresh=0.5):
+    def getBidPrice(self,y_prob,bidids,base_bid,slotprices,pred_thresh=0.5):
         avg_ctr = ClickEvaluator().compute_avgCTR(self.Y_train)
         print("Train avgCTR = {}".format(avg_ctr))
 
@@ -92,7 +92,7 @@ class CNNBidModel(BidModelInterface):
         bids = bid_estimator.linearBidPrice_variation(y_prob,base_bid,avg_ctr,slotprices,pred_thresh)
         print(bids)
         # format bids into bidids pandas frame
-        bids_df = self.gold_val[['bidid']].copy()
+        bids_df = bidids.copy()
         bids_df['bidprice'] = bids
         ipinyouWriter.ResultWriter().writeResult(self.bids_output_filepath, bids_df)
         return bids_df
@@ -250,8 +250,10 @@ if __name__ == "__main__":
     #TRAIN3_FILE_PATH = "./data.pruned/train_cleaned_prune.csv"  #"./data/medium_train_cleaned_prune.csv" #"../dataset/train_cleaned_prune.csv" #"./data/larger_train_cleaned_prune.csv" #"../dataset/train_cleaned_prune.csv" #"./data.pruned/train_cleaned_prune.csv"  # "../dataset/train.csv"
     #TRAIN_FILE_PATH = "../dataset/train_cleaned_prune.csv" #"./data/larger_train_cleaned_prune.csv" #"../dataset/train_cleaned_prune.csv" #"./data.pruned/train_cleaned_prune.csv"  # "../dataset/train.csv"
     #TRAIN_FILE_PATH = "./data/medium_train_cleaned_prune.csv"  # "./data/larger_train_cleaned_prune.csv" #"../dataset/train_cleaned_prune.csv" #"./data.pruned/train_cleaned_prune.csv"  # "../dataset/train.csv"
-    TRAIN2_FILE_PATH = "" #./data/small_train_cleaned_prune.csv"  # "./data/larger_train_cleaned_prune.csv" #"../dataset/train_cleaned_prune.csv" #"./data.pruned/train_cleaned_prune.csv"  # "../dataset/train.csv"
-    TRAIN_FILE_PATH = "./data.final/train3_cleaned_prune.csv"
+    #TRAIN2_FILE_PATH = "" #./data/small_train_cleaned_prune.csv"  # "./data/larger_train_cleaned_prune.csv" #"../dataset/train_cleaned_prune.csv" #"./data.pruned/train_cleaned_prune.csv"  # "../dataset/train.csv"
+    TRAIN_FILE_PATH = "./data.final/train1_cleaned_prune.csv"
+    TRAIN2_FILE_PATH = "./data.final/train2_cleaned_prune.csv"
+    TRAIN3_FILE_PATH = "./data.final/train3_cleaned_prune.csv"
     VALIDATION_FILE_PATH = "./data.final/validation_cleaned.csv" #"" #"../dataset/validation_cleaned_prune.csv" #"./data.pruned/validation_cleaned_prune.csv"  # "../dataset/validation.csv" "" #
     TEST_FILE_PATH = "./data.final/test.csv"
 
@@ -303,53 +305,138 @@ if __name__ == "__main__":
         trainOneHotData, trainY = trainReader.getOneHotData(exclude_domain=EXCLUDE_DOMAIN,domain_keep_prob=DOMAIN_KEEP_PROB)#0.05)
         print("Train set - No. of one-hot features: {}".format(len(trainOneHotData.columns)))
 
+        if VALIDATION_FILE_PATH:
+            print("==== Reading in validation set...")
+            print("Validation file: {}".format(VALIDATION_FILE_PATH))
+            validationReader = ipinyouReader.ipinyouReader(VALIDATION_FILE_PATH)
+            valOneHotData, valY = validationReader.getOneHotData(train_cols=trainOneHotData.columns.get_values().tolist(),exclude_domain=EXCLUDE_DOMAIN,domain_keep_prob=DOMAIN_KEEP_PROB)#0.05)
+            print("Validation set - No. of one-hot features: {}".format(len(valOneHotData.columns)))
+
+        if TEST_FILE_PATH:
+            print("==== Reading in test set...")
+            print("Test file: {}".format(TEST_FILE_PATH))
+            testReader = ipinyouReader.ipinyouReader(TEST_FILE_PATH)
+            testOneHotData,testbidids = testReader.getOneHotData(train_cols=trainOneHotData.columns.get_values().tolist(),exclude_domain=EXCLUDE_DOMAIN,domain_keep_prob=DOMAIN_KEEP_PROB)#0.05)
+            print("Test set - No. of one-hot features: {}".format(len(testOneHotData.columns)))
+
 
     if TRAIN2_FILE_PATH:
-        print("Train2 file: {}".format(VALIDATION_FILE_PATH))
+        print("Train2 file: {}".format(TRAIN2_FILE_PATH))
         train2Reader = ipinyouReader.ipinyouReader(TRAIN2_FILE_PATH)
-        train2OneHotData, train2Y = train2Reader.getOneHotData(train_cols=trainOneHotData.columns.get_values().tolist(),
+        train2OneHotData, train2Y = train2Reader.getOneHotData(train_cols=[],#trainOneHotData.columns.get_values().tolist(),
                                                              exclude_domain=EXCLUDE_DOMAIN,
                                                              domain_keep_prob=DOMAIN_KEEP_PROB)  # 0.05)
         print("Train2 set - No. of one-hot features: {}".format(len(train2OneHotData.columns)))
 
-    if VALIDATION_FILE_PATH:
-        print("==== Reading in validation set...")
-        print("Validation file: {}".format(VALIDATION_FILE_PATH))
-        validationReader = ipinyouReader.ipinyouReader(VALIDATION_FILE_PATH)
-        valOneHotData, valY = validationReader.getOneHotData(train_cols=trainOneHotData.columns.get_values().tolist(),exclude_domain=EXCLUDE_DOMAIN,domain_keep_prob=DOMAIN_KEEP_PROB)#0.05)
-        print("Validation set - No. of one-hot features: {}".format(len(valOneHotData.columns)))
+        if VALIDATION_FILE_PATH:
+            print("==== Reading in validation set...")
+            print("Validation file: {}".format(VALIDATION_FILE_PATH))
+            validation2Reader = ipinyouReader.ipinyouReader(VALIDATION_FILE_PATH)
+            val2OneHotData, val2Y = validation2Reader.getOneHotData(
+                train_cols=train2OneHotData.columns.get_values().tolist(), exclude_domain=EXCLUDE_DOMAIN,
+                domain_keep_prob=DOMAIN_KEEP_PROB)  # 0.05)
+            print("Validation set - No. of one-hot features: {}".format(len(val2OneHotData.columns)))
 
-    if TEST_FILE_PATH:
-        print("==== Reading in test set...")
-        print("Test file: {}".format(TEST_FILE_PATH))
-        testReader = ipinyouReader.ipinyouReader(TEST_FILE_PATH)
-        testOneHotData,testbidids = testReader.getOneHotData(train_cols=trainOneHotData.columns.get_values().tolist(),exclude_domain=EXCLUDE_DOMAIN,domain_keep_prob=DOMAIN_KEEP_PROB)#0.05)
-        print("Test set - No. of one-hot features: {}".format(len(testOneHotData.columns)))
+        if TEST_FILE_PATH:
+            print("==== Reading in test set...")
+            print("Test file: {}".format(TEST_FILE_PATH))
+            test2Reader = ipinyouReader.ipinyouReader(TEST_FILE_PATH)
+            test2OneHotData, test2bidids = test2Reader.getOneHotData(
+                train_cols=train2OneHotData.columns.get_values().tolist(), exclude_domain=EXCLUDE_DOMAIN,
+                domain_keep_prob=DOMAIN_KEEP_PROB)  # 0.05)
+            print("Test set - No. of one-hot features: {}".format(len(test2OneHotData.columns)))
+
+    if TRAIN3_FILE_PATH:
+        print("Train3 file: {}".format(TRAIN3_FILE_PATH))
+        train3Reader = ipinyouReader.ipinyouReader(TRAIN3_FILE_PATH)
+        train3OneHotData, train3Y = train3Reader.getOneHotData(train_cols=[],#trainOneHotData.columns.get_values().tolist(),
+                                                             exclude_domain=EXCLUDE_DOMAIN,
+                                                             domain_keep_prob=DOMAIN_KEEP_PROB)  # 0.05)
+        print("Train3 set - No. of one-hot features: {}".format(len(train3OneHotData.columns)))
+
+        if VALIDATION_FILE_PATH:
+            print("==== Reading in validation set...")
+            print("Validation file: {}".format(VALIDATION_FILE_PATH))
+            validation3Reader = ipinyouReader.ipinyouReader(VALIDATION_FILE_PATH)
+            val3OneHotData, val3Y = validation3Reader.getOneHotData(
+                train_cols=train3OneHotData.columns.get_values().tolist(), exclude_domain=EXCLUDE_DOMAIN,
+                domain_keep_prob=DOMAIN_KEEP_PROB)  # 0.05)
+            print("Validation set - No. of one-hot features: {}".format(len(val3OneHotData.columns)))
+
+        if TEST_FILE_PATH:
+            print("==== Reading in test set...")
+            print("Test file: {}".format(TEST_FILE_PATH))
+            test3Reader = ipinyouReader.ipinyouReader(TEST_FILE_PATH)
+            test3OneHotData, test3bidids = test3Reader.getOneHotData(
+                train_cols=train3OneHotData.columns.get_values().tolist(), exclude_domain=EXCLUDE_DOMAIN,
+                domain_keep_prob=DOMAIN_KEEP_PROB)  # 0.05)
+            print("Test set - No. of one-hot features: {}".format(len(test3OneHotData.columns)))
 
 
-    print("==== Train CNN model...")
+    print("==== Train CNN model1...")
     bidmodel = CNNBidModel(trainOneHotData, trainY,valOneHotData,valY, testOneHotData,testbidids,class_weights_mu=CLASS_WEIGHTS_MU,batch_size=BATCH_SIZE, total_epochs=TOTAL_EPOCHS, learning_rate=LEARNING_RATE, shuffle=SHUFFLE_INPUT,reserve_val=RESERVE_VAL)
     bidmodel.trainModel()
     print("== Reload to best weights saved...")
     bidmodel.loadSavedModel(bidmodel.model_checkpoint_filepath)
 
+    if TRAIN2_FILE_PATH:
+        print("==== Train CNN model2...")
+        bidmodel2 = CNNBidModel(train2OneHotData, train2Y, val2OneHotData, val2Y, test2OneHotData, test2bidids,
+                               class_weights_mu=CLASS_WEIGHTS_MU, batch_size=BATCH_SIZE, total_epochs=TOTAL_EPOCHS,
+                               learning_rate=LEARNING_RATE, shuffle=SHUFFLE_INPUT, reserve_val=RESERVE_VAL)
+        bidmodel2.trainModel()
+        print("== Reload to best weights saved...")
+        bidmodel2.loadSavedModel(bidmodel2.model_checkpoint_filepath)
+
+    if TRAIN3_FILE_PATH:
+        print("==== Train CNN model3...")
+        bidmodel3 = CNNBidModel(train3OneHotData, train3Y, val3OneHotData, val3Y, test3OneHotData, test3bidids,
+                                class_weights_mu=CLASS_WEIGHTS_MU, batch_size=BATCH_SIZE, total_epochs=TOTAL_EPOCHS,
+                                learning_rate=LEARNING_RATE, shuffle=SHUFFLE_INPUT, reserve_val=RESERVE_VAL)
+        bidmodel3.trainModel()
+        print("== Reload to best weights saved...")
+        bidmodel3.loadSavedModel(bidmodel3.model_checkpoint_filepath)
+
     #if TRAIN2_FILE_PATH:
-        # TODO: for this to work properly need the usertag features from here too truly?Whether it's as a seperate model
-        # print("==== Train2 CNN model...")
-        # bidmodel2 = CNNBidModel(train2OneHotData, train2Y,valOneHotData,valY, testOneHotData,testbidids,class_weights_mu=CLASS_WEIGHTS_MU,batch_size=BATCH_SIZE, total_epochs=TOTAL_EPOCHS, learning_rate=LEARNING_RATE, shuffle=SHUFFLE_INPUT,reserve_val=RESERVE_VAL)
-        # bidmodel.X_train = bidmodel2.X_train
-        # bidmodel.Y_click_train = bidmodel2.Y_click_train
-        # bidmodel.X_val = bidmodel2.X_val
-        # bidmodel.Y_click_val = bidmodel2.Y_click_val
-        # bidmodel.trainClickPredModelRunTraining()
-        # print("== Reload to best weights saved...")
-        # bidmodel.loadSavedModel(bidmodel.model_checkpoint_filepath)
+    # TODO: for this to work properly need the usertag features from here too truly?Whether it's as a seperate model
+    # print("==== Train2 CNN model...")
+    # bidmodel2 = CNNBidModel(train2OneHotData, train2Y,valOneHotData,valY, testOneHotData,testbidids,class_weights_mu=CLASS_WEIGHTS_MU,batch_size=BATCH_SIZE, total_epochs=TOTAL_EPOCHS, learning_rate=LEARNING_RATE, shuffle=SHUFFLE_INPUT,reserve_val=RESERVE_VAL)
+    # bidmodel.X_train = bidmodel2.X_train
+    # bidmodel.Y_click_train = bidmodel2.Y_click_train
+    # bidmodel.X_val = bidmodel2.X_val
+    # bidmodel.Y_click_val = bidmodel2.Y_click_val
+    # bidmodel.trainClickPredModelRunTraining()
+    # print("== Reload to best weights saved...")
+    # bidmodel.loadSavedModel(bidmodel.model_checkpoint_filepath)
 
     print("==== Predict clicks...")
     click_eval = ClickEvaluator()
-    prob_click_train=bidmodel.predictClickProbs(bidmodel.X_train)
     if RESERVE_VAL:
-        prob_click_val = bidmodel.predictClickProbs(bidmodel.X_val)
+        prob_click_train1 = bidmodel.predictClickProbs(bidmodel.X_train)
+        prob_click_val1 = bidmodel.predictClickProbs(bidmodel.X_val)
+        prob_click_test1 = bidmodel.predictClickProbs(bidmodel.X_test)
+
+        if TRAIN2_FILE_PATH:
+            prob_click_train2 = bidmodel2.predictClickProbs(bidmodel2.X_train)
+            prob_click_val2 = bidmodel2.predictClickProbs(bidmodel2.X_val)
+            prob_click_test2 = bidmodel2.predictClickProbs(bidmodel2.X_test)
+        if TRAIN3_FILE_PATH:
+            prob_click_train3 = bidmodel3.predictClickProbs(bidmodel3.X_train)
+            prob_click_val3 = bidmodel3.predictClickProbs(bidmodel3.X_val)
+            prob_click_test3 = bidmodel3.predictClickProbs(bidmodel3.X_test)
+
+        if not TRAIN2_FILE_PATH and not TRAIN3_FILE_PATH:
+            prob_click_train = prob_click_train1
+            prob_click_val=prob_click_val1
+            prob_click_test = prob_click_test1
+        elif not TRAIN3_FILE_PATH:
+            prob_click_train = np.add(prob_click_train1,prob_click_train2)/2
+            prob_click_val = np.add(prob_click_val1,prob_click_val2)/2
+            prob_click_test = np.add(prob_click_test1, prob_click_test2) / 2
+        else:
+            prob_click_train = np.add(np.add(prob_click_train1, prob_click_train2),prob_click_train3) / 3
+            prob_click_val = np.add(np.add(prob_click_val1, prob_click_val2),prob_click_val3) / 3
+            prob_click_test = np.add(np.add(prob_click_test1, prob_click_test2),prob_click_test3) / 3
 
         print("== Click prob distributions...")
         # click=1 prediction as click = =1 probabilities
@@ -371,7 +458,8 @@ if __name__ == "__main__":
         pred_thresh,base_bid=bidmodel.gridSearchBidPrice(prob_click_val[:,1],slotprices_val)
 
         print("== Get bid price for test data using pred_thresh {0:.2f} and base_bid {1} ...".format(pred_thresh,base_bid))
-        bids_df=bidmodel.getBidPrice(prob_click_val[:,1], base_bid, slotprices_val, pred_thresh)
+        slotprices_test = testReader.getDataFrame()['slotprice'].as_matrix().astype(int)
+        bids_df=bidmodel.getBidPrice(prob_click_test[:,1], bidmodel.bidids_test, base_bid, slotprices_test, pred_thresh)
 
 
         # for pred_threshold in np.arange(0.1,1.00,0.1): #np.arange(0.05,1.00,0.05):
