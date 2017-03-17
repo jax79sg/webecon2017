@@ -118,7 +118,7 @@ class ClickEvaluator():
     def clickProbHistogram(self, pred_prob,color='g',title='Predicted probabilities',imgpath='',showGraph=False):
         plt.figure()
         # the histogram of the data
-        n, bins, patches = plt.hist(pred_prob, 100, normed=True, facecolor=color, alpha=0.75)
+        n, bins, patches = plt.hist(pred_prob, 100, facecolor=color, alpha=0.75)
         plt.xlabel('Probability')
         plt.ylabel('Frequency')
         plt.title(title)
