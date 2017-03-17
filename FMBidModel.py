@@ -60,6 +60,15 @@ from fastFM import mcmc
 from fastFM import als
 import scipy as scipy
 from BidModels import BidModelInterface
+import Evaluator
+from polylearn import FactorizationMachineClassifier
+from ImbalanceLearn import ImbalanceSampling
+from Utilities import Utility
+import ipinyouReader
+import ipinyouWriter
+import Evaluator
+from  sklearn.metrics import roc_auc_score
+from sgdFMClassification import SGDFMClassification
 
 class FMBidModel(BidModelInterface):
     _regressionFormulaY =''
@@ -157,7 +166,7 @@ class FMBidModel(BidModelInterface):
         return bids
 
 
-    def trainModel(self, allTrainData, retrain=True, modelFile=None):
+    def trainModel(self, X,y, retrain=True, modelFile=None):
         """
         Train model using Logistic Regression for Click against a set of features
         Trained model will be saved to disk (No need retrain/reload training data in future if not required during program rerun)
@@ -167,33 +176,59 @@ class FMBidModel(BidModelInterface):
         :return:
         """
         self._modelFile=modelFile
+        print("Getting xTrain")
+        xTrain = X
+        yTrain = y
+        print("xTrain:", xTrain.shape,list(xTrain))
+        print("yTrain:", yTrain.shape,set(yTrain['click']),"ListL",list(yTrain))
+        yTrain['click'] = yTrain['click'].map({0: -1, 1: 1})
+
+
+        xTrain.to_csv("data.pruned/xTrain.csv")
+        yTrain.to_csv("data.pruned/yTrain.csv")
+
+        print("xTrain:",list(xTrain))
+        xTrain=xTrain.as_matrix()
+        yTrain = yTrain['click'].as_matrix()
+        # print("Performing oversampling to even out")
+        # xTrain,yTrain=ImbalanceSampling().oversampling_SMOTE(X=xTrain,y=yTrain)
+        xTrain, yTrain = ImbalanceSampling().oversampling_ADASYN(X=xTrain, y=yTrain)
+
         # instantiate a logistic regression model
-        # TODO: Need to tune the model parameters
+        # TODO: Need to tune the model parameters. SGD FastFM still perform better in terms of speed and AUC. Shall stick with it.
         if(self._modelType=='fmclassificationals'):
             print("Factorisation Machine with ALS solver will be used for training")
-            self._model = als.FMClassification(n_iter=3000, rank=2)
+            print("Converting X to sparse matrix, required by FastFM")
+            xTrain= scipy.sparse.csc_matrix(xTrain)
+            self._model = als.FMClassification(n_iter=3000, rank=2, verbose=1)
 
         elif(self._modelType=='fmclassificationsgd'):
             print("Factorisation Machine with SGD solver will be used for training")
-            self._model = sgd.FMClassification(n_iter=3000, rank=2, l2_reg_w=0.01, l2_reg_V=0.01, l2_reg=0.01, step_size=0.004)
+            print("Converting X to sparse matrix, required by FastFM")
+            xTrain= scipy.sparse.csc_matrix(xTrain)
+
+            # Optimal {'l2_reg_w': 0.0005, 'l2_reg': 0.0005, 'step_size': 0.01, 'n_iter': 200000, 'l2_reg_V': 0.0005}
+            # self._model = sgd.FMClassification(n_iter=100000, rank=2, l2_reg_w=0.01, l2_reg_V=0.01, l2_reg=0.01, step_size=0.004)
+            self._model = SGDFMClassification(n_iter=200000, rank=2, l2_reg_w=0.0005, l2_reg_V=0.0005, l2_reg=0.0005,
+                                               step_size=0.01)
+
+        elif(self._modelType=='polylearn'):
+            print("Factorisation Machine from scitkit-learn-contrib polylearn will be used for training")
+            self._model = FactorizationMachineClassifier(degree=2, loss='squared_hinge', n_components=2, alpha=1,
+                 beta=1, tol=1e-3, fit_lower='explicit', fit_linear=True,
+                 warm_start=False, init_lambdas='ones', max_iter=5000,
+                 verbose=True, random_state=None)
 
         else:
-            print("Unrecognised modelType: Factorisation Machine with ALS defaulted training")
-            self._model = als.FMClassification(n_iter=3000, rank=2)
+            print("Unrecognised modelType: Factorisation Machine with SGD defaulted training")
+            print("Converting X to sparse matrix, required by FastFM")
+            xTrain= scipy.sparse.csc_matrix(xTrain.as_matrix())
+            self._model = SGDFMClassification(n_iter=200000, rank=2, l2_reg_w=0.0005, l2_reg_V=0.0005, l2_reg=0.0005,
+                                              step_size=0.01)
 
         if (retrain):
             print("Setting up Y and X for training")
             print(datetime.datetime.now())
-            xTrain=allTrainData[self._regressionFormulaX]
-            yTrain = allTrainData['click']
-
-            print("Converting X to sparse matrix, required by FastFM")
-            xTrain= scipy.sparse.csc_matrix(xTrain.as_matrix())
-
-            # #FastFM can only accept sparse matrixes...so cannot use patsy alone to encode the feature set
-            # yTrain, xTrain = patsy.dmatrices(self._regressionFormulaY + ' ~ ' + self._regressionFormulaX, allTrainData, return_type="dataframe")
-
-            # print("No of features in input matrix: %d" % len(xTrain.columns))
 
             print("Training Model...")
             print(datetime.datetime.now())
@@ -209,60 +244,78 @@ class FMBidModel(BidModelInterface):
         print("Training completed")
         print(datetime.datetime.now())
 
-    def gridSearchandCrossValidate(self, allTrainData, retrain=True):
-        #TODO: WARNING: gridSearchandCrossValidate METHOD HAS YET TO BE THOROUGHLY TESTED on this Model
-        print("WARNING: gridSearchandCrossValidate METHOD HAS YET TO BE THOROUGHLY TESTED")
-        print("Setting up Y and X for logistic regression")
-        print(datetime.datetime.now())
-        yTrain, xTrain = patsy.dmatrices(self._regressionFormulaY + ' ~ ' + self._regressionFormulaX, allTrainData,
-                                         return_type="dataframe")
-        print((xTrain.columns))
-        print("No of features in input matrix: %d" % len(xTrain.columns))
 
-        # flatten y into a 1-D array
-        print("Flatten y into 1-D array")
-        print(datetime.datetime.now())
-        yTrain = np.ravel(yTrain)
+
+    def gridSearchandCrossValidateFastSGD(self, X,y, retrain=True):
+        # n_iter=100000, rank=2, l2_reg_w=0.01, l2_reg_V=0.01, l2_reg=0.01, step_size=0.004
+        print("Getting xTrain")
+        xTrain = X
+        yTrain = y
+        print("xTrain:", xTrain.shape,list(xTrain))
+        print("yTrain:", yTrain.shape,set(yTrain['click']),"ListL",list(yTrain))
+        yTrain['click'] = yTrain['click'].map({0: -1, 1: 1})
+
+
+        xTrain.to_csv("data.pruned/xTrain.csv")
+        yTrain.to_csv("data.pruned/yTrain.csv")
+
+        print("xTrain:",list(xTrain))
+        xTrain=xTrain.as_matrix()
+        yTrain = yTrain['click'].as_matrix()
+        print("Performing oversampling to even out")
+        # xTrain,yTrain=ImbalanceSampling().oversampling_SMOTE(X=xTrain,y=yTrain)
+        xTrain, yTrain = ImbalanceSampling().oversampling_ADASYN(X=xTrain, y=yTrain)
+
+        print("Factorisation Machine with SGD solver will be used for training")
+        print("Converting X to sparse matrix, required by FastFM")
+        xTrain = scipy.sparse.csc_matrix(xTrain)
 
         param_grid = [{
-                          'n_iter': [100],
-                          'init_std': [0.095, 0.1, 0.105],
-                          'rank':[2],
-                          'random_state': [123],
-                          'l2_reg_w': [0],
-                          'l2_reg_V': [0],
-                          'l2_reg': [None],
-                          'step_size': [0.1],
+                          'n_iter': [5000,10000,15000,20000,25000,50000],
+                          'l2_reg_w': [0.0005,0.001,0.005,0.01,0.05,0.1],
+                          'l2_reg_V': [0.0005,0.001,0.005,0.01,0.05,0.1],
+                          'l2_reg': [0.0005,0.001,0.005,0.01,0.05,0.1],
+                          'step_size': [0.0001,0.0005,0.001,0.004,0.01,0.05,0.1]
+                        # 'n_iter': [5000],
+                        # 'l2_reg_w': [0.0005, 0.001],
+                        # 'l2_reg_V': [0.0005, 0.001],
+                        # 'l2_reg': [0.0005],
+                        # 'step_size': [ 0.004]
 
-                    }
+        }
                       ]
 
-        optimized_LR = GridSearchCV(sgd.FMClassification(),
+        optimized_LR = GridSearchCV(SGDFMClassification(),
                                      param_grid=param_grid,
-                                     scoring='accuracy',
+                                     scoring='roc_auc',
                                      cv=5,
-                                     n_jobs=-1,
+                                     # n_jobs=-1,
                                      error_score='raise')
         print("Training model..")
         print(datetime.datetime.now())
         if(retrain):
             self._model = optimized_LR.fit(xTrain, yTrain)
-            super(FMBidModel, self).saveModel(self._model, self._modelFile)
-        else:
-            self._model = super(FMBidModel, self).loadSavedModel(self._modelFile)
         print("Training complete")
         print(datetime.datetime.now())
 
-        scores = optimized_LR.grid_scores_
-        # print(type(scores))
-        for i in range(len(scores)):
-            print(optimized_LR.grid_scores_[i])
+        print("Best Score: ", optimized_LR.best_score_)
+        print("Best Param: ", optimized_LR.best_params_)
 
-    def validateModel(self, allValidateDataOneHot, allValidateData):
+    def validateModel(self, xVal, yVal):
         if(self._model!=None):
             print("Setting up X Y validation for prediction")
 
-            xValidate = allValidateDataOneHot[self._regressionFormulaX]
+            xValidate = xVal
+            yVal['click'] = yVal['click'].map({0: -1, 1: 1})
+
+            xVal=xVal.reset_index(drop=True)
+            yVal = yVal.reset_index(drop=True)
+
+            click1list=yVal[yVal['click'] == 1].index.tolist()
+            click0list = yVal[yVal['click'] == -1].index.tolist()
+            print("yVal:", (yVal).shape)
+            print("click1list:",len(click1list))
+            print("click1list:", len(click0list))
 
             print("Converting to sparse matrix")
             xValidate = scipy.sparse.csc_matrix(xValidate.as_matrix())
@@ -270,33 +323,98 @@ class FMBidModel(BidModelInterface):
             # predict click labels for the validation set
             print("Predicting validation set...")
             predicted = self._model.predict(xValidate)
+            predictedProb = self._model.predict_proba(xValidate)
 
-            print("Gold label: ",allValidateData['click'])
+            predictedOneProbForclick1=predictedProb[click1list][:,1]
+            predictedOneProbForclick0 = predictedProb[click0list][:,1]
+            print("predictedProbclick1:",(predictedOneProbForclick1).shape)
+            print("predictedProbclick0:", (predictedOneProbForclick0).shape)
+            print("yVal['click']",yVal['click'].shape)
+            print("predictedProb:",predictedProb.shape)
+            print("roc_auc",roc_auc_score(yVal['click'], predictedProb[:,1]))
+
+            #Get the Goldclick==1 and retrieve the predictedProb1 for it
+            Evaluator.ClickEvaluator().clickProbHistogram(predictedOneProbForclick1,title='Click=1',showGraph=True)
+
+            # Get the Goldclick==0 and retrieve the predictedProb1 for it
+            Evaluator.ClickEvaluator().clickProbHistogram(predictedOneProbForclick0,title='Click=0',showGraph=True)
+
+            Evaluator.ClickEvaluator().clickROC(yVal['click'],predictedProb[:,1],showGraph=True)
+
+            Evaluator.ClickEvaluator().printClickPredictionScore(predicted[1],yVal['click'])
+
+            print("Gold label: ",yVal['click'])
             print("predicted label: ", predicted)
 
             print("Writing to validated prediction csv")
             valPredictionWriter = ResultWriter()
-            valPredictionWriter.writeResult(filename="FastFMpredictValidate.csv", data=predicted)
-            print("\n\nPrediction report on validation set:",metrics.classification_report(allValidateData['click'], predicted))
+            valPredictionWriter.writeResult(filename="data.pruned/FastFMpredictValidate.csv", data=predicted)
+            # print("yVal['click']:",yVal['click'].shape,yVal['click'].head(2))
+            # print("\n\nPrediction report on validation set:",metrics.classification_report(yVal['click'], predicted))
+            # Evaluator.ClickEvaluator().printClickPredictionScore(y_Gold=allValidateDataOneHot['click'],y_Pred=predicted)
+
         else:
             print("Error: No model was trained in this instance....")
 
 
-# if __name__ == "__main__":
-#     # load datasets
-#     print("Reading dataset...")
-#     trainset = "../dataset/train.csv"
-#     validationset = "../dataset/validation.csv"
-#     testset = "../dataset/test.csv"
-#     # trainDF = ipinyouReader.ipinyouReader(trainset).getDataFrame()
-#     reader_encoded = ipinyouReader.ipinyouReaderWithEncoding()
-#     trainDF, validateDF, testDF, lookupDict = reader_encoded.getTrainValidationTestDD(trainset, validationset, testset)
-#     print("Training dataset...")
-#     lrBidModel=LogisticRegressionBidModel()
-#     lrBidModel.gridSearchandCrossValidate(trainDF)
-#     lrBidModel.trainModel(trainDF)
-#     # print("trainDF.info(): ", trainDF.info())
+if __name__ == "__main__":
+    trainset = "data.final/train1_cleaned_prune.csv"
+    validationset = "data.final/validation_cleaned.csv"
+    testset = "../dataset/empty.csv"
 
+    print("Reading dataset...")
+    timer = Utility()
+    timer.startTimeTrack()
+
+    trainReader = ipinyouReader.ipinyouReader(trainset)
+    validationReader = ipinyouReader.ipinyouReader(validationset)
+
+    trainOneHotData, trainY = trainReader.getOneHotData()
+    validationOneHotData, valY = validationReader.getOneHotData(train_cols=trainOneHotData.columns.get_values().tolist())
+    timer.checkpointTimeTrack()
+
+    print("trainOneHotData:",trainOneHotData.shape,list(trainOneHotData))
+
+
+    # for colname in list(trainOneHotData):
+    #     if "creative_" in colname:
+    #         trainOneHotData=trainOneHotData.drop([colname])
+    #
+    #     if "ip_block_" in colname:
+    #         trainOneHotData=trainOneHotData.drop([colname])
+    #
+    #     if "keypage_" in colname:
+    #         trainOneHotData=trainOneHotData.drop([colname])
+    #
+    #     if "null" in colname:
+    #         trainOneHotData=trainOneHotData.drop([colname])
+    #
+    # for colname in list(validationOneHotData):
+    #     if "creative_" in colname:
+    #         validationOneHotData=validationOneHotData.drop([colname])
+    #
+    #     if "ip_block_" in colname:
+    #         validationOneHotData=validationOneHotData.drop([colname])
+    #
+    #     if "keypage_" in colname:
+    #         validationOneHotData=validationOneHotData.drop([colname])
+    #
+    #     if "null" in colname:
+    #         validationOneHotData=validationOneHotData.drop([colname])
+
+
+    print("trainY:", trainY.shape, list(trainY))
+    print("validationOneHotData:",validationOneHotData.shape,list(validationOneHotData))
+    print("valY:", valY.shape, list(valY))
+
+    fmBidModel=FMBidModel(regressionFormulaY='click', regressionFormulaX=list(trainOneHotData), cBudget=272.412385 * 1000, avgCTR=0.2, modelType='fmclassificationsgd')
+    # fmBidModel.gridSearchandCrossValidateFastSGD(trainOneHotData, trainY)
+
+    timer.startTimeTrack()
+    fmBidModel.trainModel(trainOneHotData,trainY, retrain=True, modelFile="data.pruned/fmclassificationsgd.pkl")
+    timer.checkpointTimeTrack()
+    fmBidModel.validateModel(validationOneHotData, valY)
+    timer.checkpointTimeTrack()
 
 
 
