@@ -341,14 +341,16 @@ class FMBidModel(BidModelInterface):
 
             Evaluator.ClickEvaluator().clickROC(yVal['click'],predictedProb[:,1],showGraph=True)
 
+            Evaluator.ClickEvaluator().printClickPredictionScore(predicted[1],yVal['click'])
+
             print("Gold label: ",yVal['click'])
             print("predicted label: ", predicted)
 
             print("Writing to validated prediction csv")
             valPredictionWriter = ResultWriter()
             valPredictionWriter.writeResult(filename="data.pruned/FastFMpredictValidate.csv", data=predicted)
-            print("yVal['click']:",yVal['click'].shape,yVal['click'].head(2))
-            print("\n\nPrediction report on validation set:",metrics.classification_report(yVal['click'], predicted))
+            # print("yVal['click']:",yVal['click'].shape,yVal['click'].head(2))
+            # print("\n\nPrediction report on validation set:",metrics.classification_report(yVal['click'], predicted))
             # Evaluator.ClickEvaluator().printClickPredictionScore(y_Gold=allValidateDataOneHot['click'],y_Pred=predicted)
 
         else:
