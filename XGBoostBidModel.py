@@ -20,10 +20,7 @@ class XGBoostBidModel(BidModelInterface):
 
     def getBidPrice(self, testDF):
         print("Setting up XGBoost for Test set")
-        xTest = testDF[self.X_column]
-
-        xgdmat = xgb.DMatrix(xTest)
-        y_pred = self._model.predict(xgdmat)
+        y_pred = self.getY_Pred(testDF)
 
         # y_pred = [1 if i >= 0.07 else 0 for i in y_pred]
 
@@ -35,7 +32,14 @@ class XGBoostBidModel(BidModelInterface):
 
         return bids
 
+    def getY_Pred(self, testDF):
+        print("Setting up XGBoost for Test set")
+        xTest = testDF[self.X_column]
 
+        xgdmat = xgb.DMatrix(xTest)
+        y_pred = self._model.predict(xgdmat)
+
+        return y_pred
 
     def trainModel(self, trainDF):
         print("Setting up XGBoost for Training: X and Y")
