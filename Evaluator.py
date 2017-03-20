@@ -6,6 +6,7 @@ from sklearn import metrics
 import matplotlib.pyplot as plt
 import seaborn as sns #because seaborn has more beautiful plots
 from sklearn.metrics import roc_curve, auc, mean_squared_error #roc_auc_score as AUC
+import itertools
 
 class Evaluator():
 
@@ -168,3 +169,70 @@ class ClickEvaluator():
         #clicks_dataset is a np array with 1 if click==1 or 0 if click==0
         avgCTR = clicks_dataset.sum()/len(clicks_dataset)
         return avgCTR
+
+    def plot_confusion_matrix(self,cm, classes, normalize=False,title='Confusion matrix',imgpath='',cmap=plt.cm.Blues, plotgraph=False, printStats=True):
+        """
+        Adapted from
+        http://scikit-learn.org/stable/auto_examples/model_selection/plot_confusion_matrix.html#sphx-glr-auto-examples-model-selection-plot-confusion-matrix-py
+        This function prints and plots the confusion matrix.
+        Normalization can be applied by setting `normalize=True`.
+
+        :param cm: output from scikit learn's confusion_matrix
+        :param classes: a list of classes/labels/targets
+        :param normalize:
+        :param title:
+        :param cmap: Color gradients
+        :param plotgraph: Displays the Confusion Matrix plot
+        :param printStats: Print TP,TN,FP,FN,Accuracy,Misclassification Rate,Sensitivity/Recall/True Positive Rate, Specificity, Precision, F1,
+        :return:
+        """
+        plt.imshow(cm, interpolation='nearest', cmap=cmap)
+        # plt.imshow(cm, interpolation='nearest')
+        plt.title(title)
+        plt.colorbar()
+        tick_marks = np.arange(len(classes))
+        plt.xticks(tick_marks, classes, rotation=45)
+        plt.yticks(tick_marks, classes)
+
+        if normalize:
+            cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+            print("Normalized confusion matrix")
+        else:
+            print('Confusion matrix, without normalization')
+
+        thresh = cm.max() / 2.
+        for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+            plt.text(j, i, cm[i, j],horizontalalignment="center",color="white" if cm[i, j] > thresh else "black")
+
+        # plt.tight_layout()
+        plt.ylabel('True label')
+        plt.xlabel('Predicted label')
+
+        if(printStats):
+
+            TN,FP,FN,TP=cm.ravel()
+            total=TN+FN+FP+TP
+            actualYes=FN+TP
+            actualNo=FP+TN
+            accuracy=(TN+TP)/total
+            misclassificationRate=(FP+FN)/total
+            recall=TP/actualYes
+            precision=TP/(TP+FP)
+            f1=2 * (precision * recall) / (precision + recall)
+            print("-----> Confusion Matrix stats from Postive aspect <-----")
+            print("TN:",TN)
+            print("FN:", FN)
+            print("FP:", FP)
+            print("TP:", TP)
+            print("Precision:",precision)
+            print("Recall:",recall)
+            print("F1:",f1)
+            print("Accuracy:", accuracy)
+            print("Misclassification Rate:",misclassificationRate)
+            print("Baselines: total:",total," Actual Click:",actualYes, " Actual No-click:", actualNo)
+
+        if imgpath:
+            plt.savefig(imgpath)
+
+        if (plotgraph):
+            plt.show()
