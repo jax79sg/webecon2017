@@ -2,8 +2,6 @@
 from fastFM import sgd
 import numpy as np
 
-threshold=0.5
-
 class SGDFMClassification(sgd.FMClassification):
     def predict_proba(self, X_test):
         """
@@ -23,7 +21,7 @@ class SGDFMClassification(sgd.FMClassification):
         return predictedProb
 
 
-    def predict(self, X_test):
+    def predict(self, X_test, threshold=0.5):
         """
         Override to allow manual setting of threshold instead of the default 0.5
         see threshold on top of class.
