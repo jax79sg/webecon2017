@@ -94,6 +94,44 @@ class BidEstimator():
 
         return bids_click_thresh_mask.filled().astype(int)
 
+    def thresholdSigmoid(self, predOneProb,noBidThreshold=0.4,minBid=220,bidRange=200,sigmoidDegree=-30):
+        """
+        To capture the essence of limited budget, capitalising on higher chances of clicks,
+        bidding from a base and scaling the bid along the probabilities of clicks in a non-linear manner.
+        :param predOneProb: Probability of click==1
+        :param noBidThreshold: if predOneProb falls below this threshold, there would be no bid. (E.g. bid=-1)
+        :param minBid: A min bid price for every bid
+        :param bidRange: A bid range
+        :param sigmoidDegree: For the sigmoid function. -10 less compressed (Relaxed), -100 very compressed (Threshold)
+        :return: Array of bids
+        """
+        def sigmoid(x, threshold=None, sigmoiddegree=-30):
+            """
+            Internal function. Should not be adjusted.
+            :param x:
+            :param threshold:
+            :param sigmoiddegree:
+            :return:
+            """
+            sigmoidthreshold = -0.2 - threshold #Fixed at -0.2 base threshold for simplicity.
+            a = 1 / (1 + np.exp(sigmoiddegree * (x + sigmoidthreshold)))
+            return a
+
+        def getBidPrice(clickProb, noBidThreshold, bidRange, minBid, sigmoiddegree):
+            """
+            Internal function, should not be adjusted.
+            :param clickProb: Single click prob (Not an array)
+            :return:
+            """
+            bid = 0
+            if (clickProb > noBidThreshold):
+                bid = (sigmoid(clickProb, noBidThreshold, sigmoiddegree)) * bidRange + minBid
+            return bid
+
+        f = np.vectorize(getBidPrice)
+        bids = f(predOneProb, noBidThreshold=noBidThreshold, bidRange=bidRange, minBid=minBid, sigmoiddegree=sigmoidDegree)
+        return bids
+
     def gridSearch_bidPrice(self,y_prob, avg_ctr, slotprices,gold_df,budget=25000000,bidpriceest_model='linearBidPrice',):
         # TODO this could be generalised to other models too.
         performance_list = []
@@ -165,6 +203,40 @@ class BidEstimator():
 
                         # Store result Dict
                         performance_list.append(resultDict)
+
+        elif bidpriceest_model == 'thresholdsigmoid':
+            #Variables to tune
+            #noBidThreshold=0.4,minBid=220,bidRange=200,sigmoidDegree=-30 (Baselines)
+            counter=0
+            # noBidThresholds=np.linspace(0.4,0.95,10)
+            # minBids=range(200, 220, 10)
+            # bidRanges=range(50, 250, 50)
+            # sigmoidDegrees=[-20,-30,-40]
+
+            noBidThresholds=np.linspace(0.2,0.95,10)
+            minBids=range(100, 300, 50)
+            bidRanges=range(50, 300, 50)
+            sigmoidDegrees=[-10,-20,-30,-40,-50]
+
+
+            for noBidThreshold in noBidThresholds:
+                for minBid in minBids:
+                    for bidRange in bidRanges:
+                        for sigmoidDegree in sigmoidDegrees:
+                            print("Pass ",counter," of ", len(noBidThresholds)*len(minBids)*len(bidRanges)*len(sigmoidDegrees))
+
+                            bids = self.thresholdSigmoid(predOneProb=y_prob,noBidThreshold=noBidThreshold,minBid=minBid,bidRange=bidRange,sigmoidDegree=sigmoidDegree)
+                            est_bids_df = gold_df[['bidid']].copy()
+                            est_bids_df['bidprice'] = bids
+                            myEvaluator = Evaluator()
+                            myEvaluator.computePerformanceMetricsDF(budget, est_bids_df, gold_df, verbose=True)
+                            myEvaluator.resultDict['noBidThreshold'] = noBidThreshold
+                            myEvaluator.resultDict['minBid'] = minBid
+                            myEvaluator.resultDict['bidRange'] = bidRange
+                            myEvaluator.resultDict['sigmoidDegree'] = sigmoidDegree
+                            performance_list += [myEvaluator.resultDict]
+                            counter=counter+1
+
         else:
             print("bidpriceest_model '{}' not implemented yet".format(bidpriceest_model))
 
@@ -177,6 +249,8 @@ class BidEstimator():
             performance_pd = pd.DataFrame(performance_list,
                                           columns=['base_bid', 'pred_threshold', 'variable_bid', 'won', 'click', 'spend',
                                                    'trimmed_bids', 'CTR', 'CPM', 'CPC'])
+        elif bidpriceest_model == 'thresholdsigmoid':
+            performance_pd = pd.DataFrame(performance_list, columns=['noBidThreshold','minBid','bidRange','sigmoidDegree', 'won', 'click', 'spend','trimmed_bids', 'CTR', 'CPM', 'CPC'])
 
         print("GRID SEARCH PERF TABLE")
         print(performance_pd)
@@ -202,5 +276,10 @@ class BidEstimator():
             best_pred_thresh=performance_pd['pred_threshold'][best_idx]
             best_base_bid=performance_pd['base_bid'][best_idx]
             best_variable_bid = performance_pd['variable_bid'][best_idx]
+        elif bidpriceest_model == 'thresholdsigmoid':
+            #Return everything.
+            best_pred_thresh=0
+            best_base_bid=0
+            pass
 
         return best_pred_thresh,best_base_bid,performance_pd
