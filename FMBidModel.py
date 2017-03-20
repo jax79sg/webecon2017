@@ -46,54 +46,51 @@ where base_bid assumed avgBudget, avgCTR assumed CTR of training set.
 """
 
 import numpy as np
-from patsy import patsy
-from sklearn.linear_model import LogisticRegression
-from sklearn.linear_model import SGDClassifier
 from ipinyouWriter import ResultWriter as ResultWriter
-from sklearn import metrics
 from sklearn.grid_search import GridSearchCV
 from UserException import ModelNotTrainedException
 import datetime
 import pandas as pd
-from fastFM import sgd
-from fastFM import mcmc
 from fastFM import als
 import scipy as scipy
 from BidModels import BidModelInterface
-import Evaluator
 from polylearn import FactorizationMachineClassifier
 from ImbalanceLearn import ImbalanceSampling
 from Utilities import Utility
 import ipinyouReader
-import ipinyouWriter
 import Evaluator
 from  sklearn.metrics import roc_auc_score
 from sgdFMClassification import SGDFMClassification
+from BidPriceEstimator import BidEstimator
+from sklearn.metrics import confusion_matrix
+
 
 class FMBidModel(BidModelInterface):
-    _regressionFormulaY =''
-    _regressionFormulaX =''
+    # _regressionFormulaY =''
+    # _regressionFormulaX =''
     _model=None
     _cBudget=0
-    _avgCTR=0
     _modelType=None
 
 
-    def __init__(self, regressionFormulaY='click', regressionFormulaX='weekday + hour + region + city + adexchange +slotwidth + slotheight + slotprice + advertiser',cBudget=25000*1000, avgCTR=0.000754533880574, modelType="fmclassificationsgd"):
+    def __init__(self,cBudget=25000*1000, modelType="fmclassificationsgd"):
         """
 
-        :param regressionFormulaY:
-        :param regressionFormulaX:
+        # :param regressionFormulaY:
+        # :param regressionFormulaX:
         :param cBudget:
-        :param avgCTR:
-        :param modelType: Options ['fmclassification']
+        # :param avgCTR:
+        :param modelType: Options ['fmclassificationsgd','fmclassificationals','polylearn']
         """
-        self._regressionFormulaY=regressionFormulaY
-        self._regressionFormulaX = regressionFormulaX
-        self._defaultBid = 0
+        # self._regressionFormulaY=regressionFormulaY
+        # self._regressionFormulaX = regressionFormulaX
+        # self._defaultBid = 0
         self._cBudget=cBudget
-        self._avgCTR=avgCTR
+        # self._avgCTR=avgCTR
         self._modelType=modelType
+
+    def getThreshold(self):
+        return 0.5
 
     def __computeBidPrice(self, pCTR=None):
         """
@@ -104,10 +101,8 @@ class FMBidModel(BidModelInterface):
         :param avgCTR: Consider this as the avgCTR for the training set
         :return: bid
         """
-        # base_bid_factor=1
-        # if (pCTR<0.5):
-        #     base_bid_factor=
-        bid=self._cBudget*(pCTR/self._avgCTR)
+        bid=BidEstimator().linearBidPrice_mConfi(y_pred=pCTR, base_bid=self._cBudget, m_conf=0.8,variable_bid=10)
+        print("Bid type:",type(bid))
         return bid
 
     def __predictClickOneProb(self,testDF):
@@ -119,7 +114,7 @@ class FMBidModel(BidModelInterface):
         """
 
         print("Setting up X test for prediction")
-        xTest=testDF[self._regressionFormulaX]
+        xTest=testDF
 
         print("Converting to sparse matrix")
         xTest = scipy.sparse.csc_matrix(xTest.as_matrix())
@@ -132,43 +127,123 @@ class FMBidModel(BidModelInterface):
 
         return predictedClickOneProb
 
-
-    def getBidPrice(self, allBidRequest):
+    def __predictClickOne(self,testDF):
         """
-        1. Predict click=1 prob for entire test/validation set
-            Considered as pCTR for each impression
-        2. Use the bid=base_price*(pCTR/avgCTR) formula
+        Perform prediction for click label.
+        Take the output of click=0 or 1 as the CTR.
         :param oneBidRequest:
         :return:
         """
 
+        print("Setting up X test for prediction")
+        xTest=testDF
+
+        print("Converting to sparse matrix")
+        xTest = scipy.sparse.csc_matrix(xTest.as_matrix())
+
+        # predict click labels for the test set
+        print("Predicting test set...")
+
+        # FastFM only give a probabilty of a click=1
+        predictedClick = self._model.predict(xTest, self.getThreshold())
+
+        return predictedClick
+
+    def trimToBudget(self, bidpriceDF, budget):
+        """
+        In case the bidding process exceeds the budget, trim down the bidding
+        :param bidpriceDF:
+        :param budget:
+        :return:
+        """
+        print("Trimming....")
+        totalspend=np.sum(bidpriceDF)
+        overspend = totalspend - budget
+        print("bidpriceDF:",bidpriceDF.shape)
+        print("budget:",budget)
+        print("totalspend:", totalspend)
+        print("overspend:", overspend)
+        i = -1
+        while overspend > 0 and len(bidpriceDF) + i > 0:
+            overspend += -bidpriceDF[i]
+            bidpriceDF[i] = 0
+            i += -1
+
+        print("bidpriceDF:",bidpriceDF)
+        print("np.sum(bidpriceDF:",np.sum(bidpriceDF))
+        assert(np.sum(bidpriceDF)<budget)
+        return bidpriceDF
+
+
+    def getBidPrice(self, xTestOneHotDF, yValDF,noBidThreshold=0.2833333,minBid=200,bidRange=90,sigmoidDegree=-10):
+        """
+        Retrieve the bidding price
+        :param xTestOneHotDF:
+        :param yValDF:
+        :param noBidThreshold:
+        :param minBid:
+        :param bidRange:
+        :param sigmoidDegree:
+        :return:
+        """
+        print("Computing bid price")
+        print("xTestOneHotDF:",xTestOneHotDF.shape,list(xTestOneHotDF))
+        print("yValDF:", yValDF.shape, list(yValDF))
         if(self._model==None):
             raise ModelNotTrainedException("Model must be trained prior to prediction!")
 
+        pCTR = self.__predictClickOneProb(xTestOneHotDF)[:, 1] #Prob of click==1
+        bidprice = BidEstimator().thresholdSigmoid(predOneProb=pCTR,noBidThreshold=0.2833333,minBid=200,bidRange=90,sigmoidDegree=-10)
+        print("bidprice:",bidprice)
+        bidprice = self.trimToBudget(bidprice,self._cBudget)
+        print("bidprice after trim:", bidprice)
 
-        #Compute the CTR of this BidRequest
-        pCTR=self.__predictClickOneProb(allBidRequest)
-        print("General sensing of pCTR ranges")
-        print(pCTR)
+        #merge with bidid
+        bidpriceDF=pd.DataFrame(bidprice,columns=['bidprice'])
+        print("bidpriceDF:",bidpriceDF.shape,list(bidpriceDF))
+        bididDF=pd.DataFrame(yValDF['bidid'],columns=['bidid'])
+        print("bididDF:", bididDF.shape, list(bididDF))
+        bidIdPriceDF=pd.concat([bididDF,bidpriceDF],axis=1,ignore_index=True)
+        print("bidIdPriceDF:",bidIdPriceDF.shape,list(bidIdPriceDF))
+        return bidIdPriceDF
 
-        #Compute the bid price
-        bids = np.apply_along_axis(self.__computeBidPrice, axis=0, arr=pCTR)
-        print("General sensing of bids ranges")
-        print(bids)
-
-        #Extract the corresponding bidid
-        allBidRequestMatrix=allBidRequest.as_matrix(columns=['bidid'])
-
-        #Merging bidid and bids into a table (Needed for eval)
-        bidid_bids=np.column_stack((allBidRequestMatrix, bids))
-
-        bids = pd.DataFrame(bidid_bids, columns=['bidid', 'bidprice'])
-        return bids
+    # def getBidPrice(self, allBidRequest):
+    #     """
+    #     1. Predict click=1 prob for entire test/validation set
+    #         Considered as pCTR for each impression
+    #     2. Use the bid=base_price*(pCTR/avgCTR) formula
+    #     :param oneBidRequest:
+    #     :return:
+    #     """
+    #
+    #     if(self._model==None):
+    #         raise ModelNotTrainedException("Model must be trained prior to prediction!")
+    #
+    #
+    #
+    #     #Compute the CTR of this BidRequest
+    #     pCTR=self.__predictClickOneProb(allBidRequest)[:,1]
+    #     print("General sensing of pCTR ranges")
+    #     print(pCTR)
+    #
+    #     #Compute the bid price
+    #     bids = np.apply_along_axis(self.__computeBidPrice, axis=0, arr=pCTR)
+    #     print("General sensing of bids ranges")
+    #     print(bids)
+    #
+    #     #Extract the corresponding bidid
+    #     allBidRequestMatrix=allBidRequest.as_matrix(columns=['bidid'])
+    #
+    #     #Merging bidid and bids into a table (Needed for eval)
+    #     bidid_bids=np.column_stack((allBidRequestMatrix, bids))
+    #
+    #     bids = pd.DataFrame(bidid_bids, columns=['bidid', 'bidprice'])
+    #     return bids
 
 
     def trainModel(self, X,y, retrain=True, modelFile=None):
         """
-        Train model using Logistic Regression for Click against a set of features
+        Train model using FM for Click against a set of features
         Trained model will be saved to disk (No need retrain/reload training data in future if not required during program rerun)
         :param allTrainData:
         :param retrain: If False, will load self._modelFile instead of training the dataset.
@@ -190,9 +265,12 @@ class FMBidModel(BidModelInterface):
         print("xTrain:",list(xTrain))
         xTrain=xTrain.as_matrix()
         yTrain = yTrain['click'].as_matrix()
-        # print("Performing oversampling to even out")
-        # xTrain,yTrain=ImbalanceSampling().oversampling_SMOTE(X=xTrain,y=yTrain)
-        xTrain, yTrain = ImbalanceSampling().oversampling_ADASYN(X=xTrain, y=yTrain)
+
+        if(retrain):
+            print("Performing oversampling to even out")
+            xTrain,yTrain=ImbalanceSampling().oversampling_SMOTE(X=xTrain,y=yTrain)
+            #ADASYN is slower and doesn't offer better model performance, choose SMOTE instead.
+            # xTrain, yTrain = ImbalanceSampling().oversampling_ADASYN(X=xTrain, y=yTrain)
 
         # instantiate a logistic regression model
         # TODO: Need to tune the model parameters. SGD FastFM still perform better in terms of speed and AUC. Shall stick with it.
@@ -206,11 +284,11 @@ class FMBidModel(BidModelInterface):
             print("Factorisation Machine with SGD solver will be used for training")
             print("Converting X to sparse matrix, required by FastFM")
             xTrain= scipy.sparse.csc_matrix(xTrain)
+            print("Training with n_iter=200000, rank=2, l2_reg_w=0.0005, l2_reg_V=0.0005, l2_reg=0.0005,step_size=0.01")
 
-            # Optimal {'l2_reg_w': 0.0005, 'l2_reg': 0.0005, 'step_size': 0.01, 'n_iter': 200000, 'l2_reg_V': 0.0005}
-            # self._model = sgd.FMClassification(n_iter=100000, rank=2, l2_reg_w=0.01, l2_reg_V=0.01, l2_reg=0.01, step_size=0.004)
-            self._model = SGDFMClassification(n_iter=200000, rank=2, l2_reg_w=0.0005, l2_reg_V=0.0005, l2_reg=0.0005,
-                                               step_size=0.01)
+            # Best Training set score: 0.9121148444887212
+            # Best Param: {'n_iter': 200000, 'l2_reg_w': 0.0005, 'step_size': 0.004, 'l2_reg_V': 0.005, 'rank': 16}
+            self._model = SGDFMClassification(n_iter=200000, rank=16, l2_reg_w=0.0005, l2_reg_V=0.0005, l2_reg=0.0005,step_size=0.01)
 
         elif(self._modelType=='polylearn'):
             print("Factorisation Machine from scitkit-learn-contrib polylearn will be used for training")
@@ -220,11 +298,7 @@ class FMBidModel(BidModelInterface):
                  verbose=True, random_state=None)
 
         else:
-            print("Unrecognised modelType: Factorisation Machine with SGD defaulted training")
-            print("Converting X to sparse matrix, required by FastFM")
-            xTrain= scipy.sparse.csc_matrix(xTrain.as_matrix())
-            self._model = SGDFMClassification(n_iter=200000, rank=2, l2_reg_w=0.0005, l2_reg_V=0.0005, l2_reg=0.0005,
-                                              step_size=0.01)
+            raise ModelNotTrainedException('Selected model not available','Valid models are polylearn,fmclassificationsgd,fmclassificationals')
 
         if (retrain):
             print("Setting up Y and X for training")
@@ -236,17 +310,36 @@ class FMBidModel(BidModelInterface):
             self._model = self._model.fit(xTrain, yTrain)  # Loss function:liblinear
             super(FMBidModel, self).saveModel(self._model, self._modelFile)
 
-            # check the accuracy on the training set
-            print("\n\nTraining acccuracy: %5.3f" % self._model.score(xTrain, yTrain))
         else:
             self._model=super(FMBidModel, self).loadSavedModel(self._modelFile)
 
         print("Training completed")
         print(datetime.datetime.now())
 
+    def optimiseBid(self, xTestDF,yTestDF):
+        """
+        Perform bid optimisation based on params
+        :param xTestDF:
+        :param yTestDF:
+        :return:
+        """
+        print(" xTestDF:",xTestDF.shape,"\n",list(xTestDF))
+        print(" yTestDF:", yTestDF.shape, "\n", list(yTestDF))
+        result = pd.concat([xTestDF, yTestDF], axis=1)
+        print(" result:", result.shape, "\n", list(result))
+        predProb = self.__predictClickOneProb(xTestDF)
+        be = BidEstimator()
+        be.gridSearch_bidPrice(predProb[:,1], 0, 0, result, bidpriceest_model='thresholdsigmoid')
 
 
     def gridSearchandCrossValidateFastSGD(self, X,y, retrain=True):
+        """
+        Perform gridsearch on FM model
+        :param X:
+        :param y:
+        :param retrain:
+        :return:
+        """
         # n_iter=100000, rank=2, l2_reg_w=0.01, l2_reg_V=0.01, l2_reg=0.01, step_size=0.004
         print("Getting xTrain")
         xTrain = X
@@ -256,26 +349,26 @@ class FMBidModel(BidModelInterface):
         yTrain['click'] = yTrain['click'].map({0: -1, 1: 1})
 
 
-        xTrain.to_csv("data.pruned/xTrain.csv")
-        yTrain.to_csv("data.pruned/yTrain.csv")
+        # xTrain.to_csv("data.pruned/xTrain.csv")
+        # yTrain.to_csv("data.pruned/yTrain.csv")
 
         print("xTrain:",list(xTrain))
         xTrain=xTrain.as_matrix()
         yTrain = yTrain['click'].as_matrix()
         print("Performing oversampling to even out")
-        # xTrain,yTrain=ImbalanceSampling().oversampling_SMOTE(X=xTrain,y=yTrain)
-        xTrain, yTrain = ImbalanceSampling().oversampling_ADASYN(X=xTrain, y=yTrain)
+        xTrain,yTrain=ImbalanceSampling().oversampling_SMOTE(X=xTrain,y=yTrain)
 
         print("Factorisation Machine with SGD solver will be used for training")
         print("Converting X to sparse matrix, required by FastFM")
         xTrain = scipy.sparse.csc_matrix(xTrain)
 
         param_grid = [{
-                          'n_iter': [5000,10000,15000,20000,25000,50000],
-                          'l2_reg_w': [0.0005,0.001,0.005,0.01,0.05,0.1],
-                          'l2_reg_V': [0.0005,0.001,0.005,0.01,0.05,0.1],
-                          'l2_reg': [0.0005,0.001,0.005,0.01,0.05,0.1],
-                          'step_size': [0.0001,0.0005,0.001,0.004,0.01,0.05,0.1]
+                          'n_iter': [150000,200000,250000],
+                          'l2_reg_w': [0.0001,0.0005,0.001,0.005,0.01,0.05,0.1],
+                          'l2_reg_V': [0.0001,0.0005,0.001,0.005,0.01,0.05,0.1],
+                          # 'l2_reg': [0.0001,0.0005,0.001,0.005,0.01,0.05,0.1],
+                          'step_size': [0.0005,0.004,0.007],
+                          'rank':[32,36,42,46,52,56,64]
                         # 'n_iter': [5000],
                         # 'l2_reg_w': [0.0005, 0.001],
                         # 'l2_reg_V': [0.0005, 0.001],
@@ -290,7 +383,8 @@ class FMBidModel(BidModelInterface):
                                      scoring='roc_auc',
                                      cv=5,
                                      # n_jobs=-1,
-                                     error_score='raise')
+                                     error_score='raise',
+                                    verbose=1)
         print("Training model..")
         print(datetime.datetime.now())
         if(retrain):
@@ -302,6 +396,12 @@ class FMBidModel(BidModelInterface):
         print("Best Param: ", optimized_LR.best_params_)
 
     def validateModel(self, xVal, yVal):
+        """
+        Perform validation of model with different metrics and graphs for analysis
+        :param xVal:
+        :param yVal:
+        :return:
+        """
         if(self._model!=None):
             print("Setting up X Y validation for prediction")
 
@@ -341,7 +441,17 @@ class FMBidModel(BidModelInterface):
 
             Evaluator.ClickEvaluator().clickROC(yVal['click'],predictedProb[:,1],showGraph=True)
 
-            Evaluator.ClickEvaluator().printClickPredictionScore(predicted[1],yVal['click'])
+            #Convert -1 to 0 as Evaluator printClickPredictionScore cannot handle -1
+            predicted[predicted==-1] = 0
+            yVal['click'] = yVal['click'].map({-1: 0, 1: 1})
+            Evaluator.ClickEvaluator().printClickPredictionScore(predicted,yVal['click'])
+
+            cnf_matrix = confusion_matrix(yVal['click'], predicted)
+
+            Evaluator.ClickEvaluator().plot_confusion_matrix(cm=cnf_matrix,classes=set(yVal['click']),plotgraph=True,printStats=True)
+            #Change back, just in case
+            predicted[predicted==0] = -1
+            yVal['click'] = yVal['click'].map({0: -1, 1: 1})
 
             print("Gold label: ",yVal['click'])
             print("predicted label: ", predicted)
@@ -349,18 +459,16 @@ class FMBidModel(BidModelInterface):
             print("Writing to validated prediction csv")
             valPredictionWriter = ResultWriter()
             valPredictionWriter.writeResult(filename="data.pruned/FastFMpredictValidate.csv", data=predicted)
-            # print("yVal['click']:",yVal['click'].shape,yVal['click'].head(2))
-            # print("\n\nPrediction report on validation set:",metrics.classification_report(yVal['click'], predicted))
-            # Evaluator.ClickEvaluator().printClickPredictionScore(y_Gold=allValidateDataOneHot['click'],y_Pred=predicted)
 
         else:
             print("Error: No model was trained in this instance....")
 
 
 if __name__ == "__main__":
+
     trainset = "data.final/train1_cleaned_prune.csv"
     validationset = "data.final/validation_cleaned.csv"
-    testset = "../dataset/empty.csv"
+    testset = "data.final/test.csv"
 
     print("Reading dataset...")
     timer = Utility()
@@ -368,54 +476,71 @@ if __name__ == "__main__":
 
     trainReader = ipinyouReader.ipinyouReader(trainset)
     validationReader = ipinyouReader.ipinyouReader(validationset)
-
+    testReader = ipinyouReader.ipinyouReader(testset)
+    timer.checkpointTimeTrack()
+    print("Getting encoded datasets")
     trainOneHotData, trainY = trainReader.getOneHotData()
     validationOneHotData, valY = validationReader.getOneHotData(train_cols=trainOneHotData.columns.get_values().tolist())
+    testOneHotData, testY = testReader.getOneHotData(train_cols=trainOneHotData.columns.get_values().tolist())
     timer.checkpointTimeTrack()
 
     print("trainOneHotData:",trainOneHotData.shape,list(trainOneHotData))
 
-
-    # for colname in list(trainOneHotData):
-    #     if "creative_" in colname:
-    #         trainOneHotData=trainOneHotData.drop([colname])
-    #
-    #     if "ip_block_" in colname:
-    #         trainOneHotData=trainOneHotData.drop([colname])
-    #
-    #     if "keypage_" in colname:
-    #         trainOneHotData=trainOneHotData.drop([colname])
-    #
-    #     if "null" in colname:
-    #         trainOneHotData=trainOneHotData.drop([colname])
-    #
-    # for colname in list(validationOneHotData):
-    #     if "creative_" in colname:
-    #         validationOneHotData=validationOneHotData.drop([colname])
-    #
-    #     if "ip_block_" in colname:
-    #         validationOneHotData=validationOneHotData.drop([colname])
-    #
-    #     if "keypage_" in colname:
-    #         validationOneHotData=validationOneHotData.drop([colname])
-    #
-    #     if "null" in colname:
-    #         validationOneHotData=validationOneHotData.drop([colname])
 
 
     print("trainY:", trainY.shape, list(trainY))
     print("validationOneHotData:",validationOneHotData.shape,list(validationOneHotData))
     print("valY:", valY.shape, list(valY))
 
-    fmBidModel=FMBidModel(regressionFormulaY='click', regressionFormulaX=list(trainOneHotData), cBudget=272.412385 * 1000, avgCTR=0.2, modelType='fmclassificationsgd')
+    fmBidModel=FMBidModel(cBudget=25000 * 1000, modelType='fmclassificationsgd')
+    print("==========Training starts")
     # fmBidModel.gridSearchandCrossValidateFastSGD(trainOneHotData, trainY)
 
-    timer.startTimeTrack()
+
     fmBidModel.trainModel(trainOneHotData,trainY, retrain=True, modelFile="data.pruned/fmclassificationsgd.pkl")
     timer.checkpointTimeTrack()
+
+    print("==========Validation starts")
     fmBidModel.validateModel(validationOneHotData, valY)
     timer.checkpointTimeTrack()
 
+    # print("==========Bid optimisation starts")
+    # fmBidModel.optimiseBid(validationOneHotData,valY)
+    # timer.checkpointTimeTrack()
+    # best score      0.3683528286042599
+    # noBidThreshold  2.833333e-01
+    # minBid          2.000000e+02
+    # bidRange        9.000000e+01
+    # sigmoidDegree - 1.000000e+01
+    # won             3.432900e+04
+    # click           1.380000e+02
+    # spend           2.729869e+06
+    # trimmed_bids    0.000000e+00
+    # CTR             4.019925e-03
+    # CPM             7.952078e+04
+    # CPC             1.978166e+04
+    # blended_score   3.683528e-01
+
+    # best score      0.3681133881545131
+    # noBidThreshold  2.833333e-01
+    # minBid          2.000000e+02
+    # bidRange        1.000000e+02
+    # sigmoidDegree - 1.000000e+01
+    # won             3.449900e+04
+    # click           1.380000e+02
+    # spend           2.758561e+06
+    # trimmed_bids    0.000000e+00
+    # CTR             4.000116e-03
+    # CPM             7.996061e+04
+    # CPC             1.998957e+04
+    # blended_score   3.681134e-01
+
+
+    # print("==========Getting  bids")
+    # bidIdPriceDF=fmBidModel.getBidPrice(validationOneHotData,valY,noBidThreshold=0.2833333,minBid=200,bidRange=100,sigmoidDegree=-10)
+    # print("bidIdPriceDF:",bidIdPriceDF.shape, list(bidIdPriceDF))
+    # bidIdPriceDF.to_csv("mybids.csv")
+    # timer.checkpointTimeTrack()
 
 
 
