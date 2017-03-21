@@ -132,7 +132,7 @@ class BidEstimator():
         bids = f(predOneProb, noBidThreshold=noBidThreshold, bidRange=bidRange, minBid=minBid, sigmoiddegree=sigmoidDegree)
         return bids
 
-    def gridSearch_bidPrice(self,y_prob, avg_ctr, slotprices,gold_df,budget=25000000,bidpriceest_model='linearBidPrice',):
+    def gridSearch_bidPrice(self,y_prob, avg_ctr, slotprices,gold_df,budget=6250000,bidpriceest_model='linearBidPrice',):
         # TODO this could be generalised to other models too.
         performance_list = []
         if bidpriceest_model == 'linearBidPrice':
