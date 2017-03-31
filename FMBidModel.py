@@ -73,7 +73,7 @@ class FMBidModel(BidModelInterface):
     _modelType=None
 
 
-    def __init__(self,cBudget=25000*1000, modelType="fmclassificationsgd"):
+    def __init__(self,cBudget=6250*1000, modelType="fmclassificationsgd"):
         """
 
         # :param regressionFormulaY:
@@ -492,7 +492,7 @@ if __name__ == "__main__":
     print("validationOneHotData:",validationOneHotData.shape,list(validationOneHotData))
     print("valY:", valY.shape, list(valY))
 
-    fmBidModel=FMBidModel(cBudget=25000 * 1000, modelType='fmclassificationsgd')
+    fmBidModel=FMBidModel(cBudget=6250 * 1000, modelType='fmclassificationsgd')
     print("==========Training starts")
     # fmBidModel.gridSearchandCrossValidateFastSGD(trainOneHotData, trainY)
 
@@ -500,13 +500,15 @@ if __name__ == "__main__":
     fmBidModel.trainModel(trainOneHotData,trainY, retrain=True, modelFile="data.pruned/fmclassificationsgd.pkl")
     timer.checkpointTimeTrack()
 
-    print("==========Validation starts")
-    fmBidModel.validateModel(validationOneHotData, valY)
+    # print("==========Validation starts")
+    # fmBidModel.validateModel(validationOneHotData, valY)
+    # timer.checkpointTimeTrack()
+
+
+    print("==========Bid optimisation starts")
+    fmBidModel.optimiseBid(validationOneHotData,valY)
     timer.checkpointTimeTrack()
 
-    # print("==========Bid optimisation starts")
-    # fmBidModel.optimiseBid(validationOneHotData,valY)
-    # timer.checkpointTimeTrack()
     # best score      0.3683528286042599
     # noBidThreshold  2.833333e-01
     # minBid          2.000000e+02
@@ -536,8 +538,25 @@ if __name__ == "__main__":
     # blended_score   3.681134e-01
 
 
+    # New budget      6250000
+    # FM
+    # best score      0.32755084132163526
+    # noBidThreshold  8.666667e-01
+    # minBid          2.000000e+02
+    # bidRange        2.500000e+02
+    # sigmoidDegree - 1.000000e+01
+    # won             1.461000e+04
+    # click           1.170000e+02
+    # spend           1.124960e+06
+    # trimmed_bids    0.000000e+00
+    # CTR             8.008214e-03
+    # CPM             7.699932e+04
+    # CPC             9.615043e+03
+    # blended_score   3.275508e-01
+
     # print("==========Getting  bids")
-    # bidIdPriceDF=fmBidModel.getBidPrice(validationOneHotData,valY,noBidThreshold=0.2833333,minBid=200,bidRange=100,sigmoidDegree=-10)
+    # # bidIdPriceDF=fmBidModel.getBidPrice(validationOneHotData,valY,noBidThreshold=0.2833333,minBid=200,bidRange=100,sigmoidDegree=-10)
+    # bidIdPriceDF=fmBidModel.getBidPrice(validationOneHotData,valY,noBidThreshold=0.8666667,minBid=200,bidRange=250,sigmoidDegree=-10)
     # print("bidIdPriceDF:",bidIdPriceDF.shape, list(bidIdPriceDF))
     # bidIdPriceDF.to_csv("mybids.csv")
     # timer.checkpointTimeTrack()
