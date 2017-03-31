@@ -132,7 +132,7 @@ class BidEstimator():
         bids = f(predOneProb, noBidThreshold=noBidThreshold, bidRange=bidRange, minBid=minBid, sigmoiddegree=sigmoidDegree)
         return bids
 
-    def gridSearch_bidPrice(self,y_prob, avg_ctr, slotprices,gold_df,budget=25000000,bidpriceest_model='linearBidPrice',):
+    def gridSearch_bidPrice(self,y_prob, avg_ctr, slotprices,gold_df,budget=6250000,bidpriceest_model='linearBidPrice',):
         # TODO this could be generalised to other models too.
         performance_list = []
         if bidpriceest_model == 'linearBidPrice':
@@ -255,9 +255,9 @@ class BidEstimator():
         print("GRID SEARCH PERF TABLE")
         print(performance_pd)
 
-        ## Determine 'best' params from 'CTR', 'click'/total_gold_clicks, 1-'spend'/max_budget,
+        ## Determine 'best' params from 'CTR', 'click'/total_gold_clicks, (Removed: 1-'spend'/max_budget)
         total_gold_clicks = len(gold_df[gold_df['click'] == 1])
-        perf_score = performance_pd.apply(lambda x: x['CTR'] * 0.5 + (x['click']/ total_gold_clicks)*0.3 + (1-x['spend']/budget) * 0.2, axis=1)
+        perf_score = performance_pd.apply(lambda x: x['CTR'] * 0.6 + (x['click']/ total_gold_clicks)*0.4 , axis=1) #+ (1-x['spend']/budget) * 0.2
         performance_pd['blended_score'] = perf_score
         print("GRID SEARCH PERF SCORE")
         print(perf_score)
