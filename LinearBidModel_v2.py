@@ -26,18 +26,28 @@ class LinearBidModel_v2(BidModelInterface):
             raise ModelNotTrainedException("Model must be trained prior to prediction!")
 
         #Compute the CTR of this BidRequest
-        pred = self._model.predict_proba(allBidRequest)
-        pred = pred[:, 1]
+        y_pred = self._model.predict_proba(allBidRequest)
+        y_pred = y_pred[:, 1]
 
-        bidprice = BidEstimator().linearBidPrice(pred, self._cBudget, self._avgCTR)
+        bidprice = BidEstimator().linearBidPrice(y_pred, self._cBudget, self._avgCTR)
 
         bids = np.stack([v_df['bidid'], bidprice], axis=1)
         bids = pd.DataFrame(bids, columns=['bidid', 'bidprice'])
         print(bids.info())
-        return bids
+        return y_pred, bids
+
+    # def getY_Pred(self, allBidRequest):
+    #     if(self._model==None):
+    #         raise ModelNotTrainedException("Model must be trained prior to prediction!")
+    #
+    #     #Compute the CTR of this BidRequest
+    #     pred = self._model.predict_proba(allBidRequest)
+    #     pred = pred[:, 1]
+    #
+    #     return pred
 
     def trainModel(self, xTrain, yTrain):
-        self._model = SGDClassifier(alpha=0.0001, penalty='l1',loss='log')
+        self._model = SGDClassifier(alpha=0.0001, penalty='l1', loss='log', n_iter=200)
         self._model = self._model.fit(xTrain, yTrain)  # Loss function:liblinear
 
         pred = self._model.predict_proba(xTrain)
@@ -87,9 +97,10 @@ class LinearBidModel_v2(BidModelInterface):
         optimized_LR = GridSearchCV(SGDClassifier(),
                                      param_grid=param_grid,
                                      scoring='roc_auc',
-                                     cv=5,
-                                     # n_jobs=-1,
-                                     error_score='raise')
+                                     cv=3,
+                                     n_jobs=-1,
+                                     error_score='raise',
+                                     )
         print("Grid Searching...")
         self._model = optimized_LR.fit(xTrain, yTrain)
         print("Best Score: ", optimized_LR.best_score_)

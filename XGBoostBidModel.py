@@ -25,7 +25,7 @@ class XGBoostBidModel(BidModelInterface):
         # y_pred = [1 if i >= 0.07 else 0 for i in y_pred]
 
         # bidprice = BidEstimator().linearBidPrice(y_pred, base_bid=220, avg_ctr=0.2)
-        bidprice = BidEstimator().linearBidPrice_mConfi(y_pred, base_bid=240, variable_bid=100, m_conf=0.8)
+        bidprice = BidEstimator().linearBidPrice_mConfi(y_pred, base_bid=240, variable_bid=70, m_conf=0.95)
 
         bids = np.stack([testDF['bidid'], bidprice], axis=1)
         bids = pd.DataFrame(bids, columns=['bidid', 'bidprice'])
@@ -48,9 +48,12 @@ class XGBoostBidModel(BidModelInterface):
 
         # print(xTrain.columns)
         print ("No of features in input matrix: %d" % len(xTrain.columns))
-
+        # optimised_params = {'eta': 0.1, 'seed':0, 'subsample': 0.55, 'colsample_bytree': 0.8,
+        #                     'objective': 'binary:logistic', 'max_depth':3, 'min_child_weight':1,
+        #                     'learning_rate': 0.042, 'reg_alpha': 0.05, 'scoring':'roc_auc', 'n_estimators': 5000,
+        #                     'base_score': 0.5}
         optimised_params = {'eta': 0.1, 'seed':0, 'subsample': 0.55, 'colsample_bytree': 0.8,
-                            'objective': 'binary:logistic', 'max_depth':3, 'min_child_weight':1,
+                            'objective': 'binary:logistic', 'max_depth':5, 'min_child_weight':1,
                             'learning_rate': 0.042, 'reg_alpha': 0.05, 'scoring':'roc_auc', 'n_estimators': 5000,
                             'base_score': 0.5}
         xgdmat = xgb.DMatrix(xTrain, yTrain) # Create our DMatrix to make XGBoost more efficient
@@ -66,13 +69,13 @@ class XGBoostBidModel(BidModelInterface):
         ClickEvaluator().printClickPredictionScore(y_pred, yTrain)
 
 
-        sns.set(font_scale = 1.5)
-        xgb.plot_importance(self._model, max_num_features=15)
-
-        fscore = self._model.get_fscore()
-        importance_frame = pd.DataFrame({'Importance': list(fscore.values()), 'Feature': list(fscore.keys())})
-        importance_frame.sort_values(by='Importance', inplace=True)
-        importance_frame.plot(kind='barh', x='Feature', figsize=(8, 8), color='orange')
+        # sns.set(font_scale = 1.5)
+        # xgb.plot_importance(self._model, max_num_features=15)
+        #
+        # fscore = self._model.get_fscore()
+        # importance_frame = pd.DataFrame({'Importance': list(fscore.values()), 'Feature': list(fscore.keys())})
+        # importance_frame.sort_values(by='Importance', inplace=True)
+        # importance_frame.plot(kind='barh', x='Feature', figsize=(8, 8), color='orange')
         # plt.show()
 
     def gridSearch(self, trainDF):
@@ -85,20 +88,21 @@ class XGBoostBidModel(BidModelInterface):
 
         ## Setup Grid Search parameter
         param_grid = {
-                      'max_depth': [3],
+                      'max_depth': [3, 4],
                       'min_child_weight': [1],
                       'subsample': [0.55],
                       'colsample_bytree': [0.8],
                       'learning_rate': [0.042],
                       'gamma': [0],
-                      'reg_alpha': [0.05]
+                      'reg_alpha': [0.05],
+                      'base_score': [0.5],
                       }
 
-        ind_params = {'n_estimators': 5000,
+        ind_params = {'n_estimators': 1000,
                       'seed': 0,
                       # 'colsample_bytree': 0.8,
                       'objective': 'binary:logistic',
-                      'base_score': 0.5,
+                      # 'base_score': 0.5,
                       'colsample_bylevel': 1,
                       # 'gamma': 0,
                       'max_delta_step': 0,
@@ -107,11 +111,12 @@ class XGBoostBidModel(BidModelInterface):
                       'reg_lambda': 1,
                       'scale_pos_weight': 1,
                       'silent': True,
+
                       }
 
         optimized_GBM = GridSearchCV(xgb.XGBClassifier(**ind_params),
                                      param_grid=param_grid,
-                                     scoring='accuracy',
+                                     scoring='roc_auc',
                                      cv=5,
                                      n_jobs=-1,
                                      error_score='raise')
@@ -167,18 +172,19 @@ class XGBoostBidModel(BidModelInterface):
         click1 = y_pred[validateDF.click == 1]
         n, bins, patches = ClickEvaluator().clickProbHistogram(pred_prob=click1, color='g',
                                                          title='Predicted probabilities for clicks=1',
-                                                         # imgpath="./SavedCNNModels/Keras-CNN-click1-" + bidmodel.timestr + ".jpg",
+                                                         # imgpath="./SavedCNNModels/xgboost-click1-" + bidmodel.timestr + ".jpg",
                                                          showGraph=True)
 
         # click=0 prediction as click=1 probabilities
         click0 = y_pred[validateDF.click == 0]
         n, bins, patches = ClickEvaluator().clickProbHistogram(pred_prob=click0, color='r',
                                                          title='Predicted probabilities for clicks=0',
-                                                         # imgpath="./SavedCNNModels/Keras-CNN-click0-" + bidmodel.timestr + ".jpg",
+                                                         # imgpath="./SavedCNNModels/xgboost-click0-" + bidmodel.timestr + ".jpg",
                                                          showGraph=True)
-
-        y_pred = [1 if i >= 0.5 else 0 for i in y_pred]
-        ClickEvaluator().printClickPredictionScore(y_pred, yValidate)
+        for p in range(1, 10):
+            print(">%.1f=========================================" %p)
+            y_pred1 = [1 if i >= p/10 else 0 for i in y_pred]
+            ClickEvaluator().printClickPredictionScore(y_pred1, yValidate)
 
 
         # sns.set(font_scale = 1.5)
@@ -196,7 +202,7 @@ class XGBoostBidModel(BidModelInterface):
         y_pred = self.__estimateClick(testDF)
 
         be = BidEstimator()
-        be.gridSearch_bidPrice(y_pred, 0, 0, testDF, bidpriceest_model='linearBidPrice_mConfi')
+        be.gridSearch_bidPrice(y_pred, 0, 0, testDF, budget=(6250*1000), bidpriceest_model='linearBidPrice_mConfi')
 
 
         #
@@ -250,7 +256,7 @@ class XGBoostBidModel(BidModelInterface):
 
             # print("Estimated bid price: ", bids.bidprice.ix[0])
 
-            resultDict = myEvaluator.computePerformanceMetricsDF(25000 * 1000, bids, validateDF)
+            resultDict = myEvaluator.computePerformanceMetricsDF(6250 * 1000, bids, validateDF)
             myEvaluator.printResult()
             ctr = resultDict['click'] / resultDict['won']
 
@@ -312,8 +318,8 @@ if __name__ == "__main__":
     click_pred = XGBoostBidModel(X_column, Y_column)
     # click_pred.gridSearch(trainDF)
     click_pred.trainModel(trainDF)
-    click_pred.validateModel(validateDF)
-    # click_pred.tunelinearBaseBid(validateDF)
+    # click_pred.validateModel(validateDF)
+    click_pred.tunelinearBaseBid(validateDF)
     # click_pred.getBidPrice(validateDF)
 
 

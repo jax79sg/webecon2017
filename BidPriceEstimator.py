@@ -42,7 +42,7 @@ class BidEstimator():
         :return:
         '''
         # bids = [base_bid * (i/avg_ctr) if i>min_confidence else -1 for i in y_pred]
-        bids = [base_bid + ((i-m_conf / 1-m_conf)*variable_bid) if i > m_conf else -1 for i in y_pred]
+        bids = [base_bid + (((i-m_conf) / (1-m_conf))*variable_bid) if i > m_conf else -1 for i in y_pred]
         # print("y_pred: ", y_pred[0:20])
         # print(bids[0:20])
 
@@ -168,21 +168,10 @@ class BidEstimator():
             myEvaluator = Evaluator()
 
             total_gold_clicks = len(gold_df[gold_df['click'] == 1])
-            # best score 0.450834741010101
-            # base_bid            235.000000
-            # pred_threshold        0.900000
-            # variable_bid          0.000000
-            # won                 225.000000
-            # click                70.000000
-            # spend             21920.000000
-            # trimmed_bids          0.000000
-            # CTR                   0.311111
-            # CPM               97422.222222
-            # CPC                 313.142857
-            # blended_score         0.450835
-            basebid_grid = np.arange(180, 260, 5)
-            variable_grid = np.arange(0, 140, 5)
-            confi_grid = np.arange(0.4, 0.95, 0.025)
+
+            basebid_grid = np.arange(20, 221, 20)
+            variable_grid = np.arange(10, 121, 20)
+            confi_grid = np.arange(0.1, 0.91, 0.1)
             # basebid_grid = np.arange(220, 230, 5)
             # variable_grid = np.arange(0, 20, 10)
             # confi_grid = np.arange(0.85, 0.95, 0.05)
@@ -281,5 +270,9 @@ class BidEstimator():
             best_pred_thresh=0
             best_base_bid=0
             pass
+
+        # print("Pred_threshold\tbase_bid\tClick\tCTR\tSpend")
+        # for _, i in performance_pd.iterrows():
+        #     print("%.1f\t%d\t%d\t%.4f\t%.0f" % (i['pred_threshold'], i['base_bid'], i['click'], i['CTR'], i['spend']/1000))
 
         return best_pred_thresh,best_base_bid,performance_pd

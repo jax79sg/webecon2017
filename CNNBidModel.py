@@ -4,7 +4,7 @@ import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
 import time
 import os
 import glob
-import cv2
+# import cv2
 import ujson as json
 #import json
 from collections import OrderedDict

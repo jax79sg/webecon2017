@@ -3,7 +3,7 @@ import ipinyouWriter
 import Evaluator
 import BidModels
 import LinearBidModel
-import FMBidModel
+# import FMBidModel
 import pandas as pd
 import numpy as np
 from XGBoostBidModel import XGBoostBidModel
@@ -16,7 +16,7 @@ def exeConstantBidModel(validationData, trainData=None, train=False, writeResult
     constantBidModel = BidModels.ConstantBidModel()
 
     if train:
-        constantBidModel.trainModel(trainData, searchRange=[1, 400], budget=int(25000*1000*8.88))
+        constantBidModel.trainModel(trainData, searchRange=[1, 400], budget=int(6250*1000*8.88))
 
     bids = constantBidModel.getBidPrice(validationData.bidid)
     # bids = np.apply_along_axis(constantBidModel.getBidPrice, axis=1, arr=validationData.getTestData())
@@ -26,7 +26,7 @@ def exeConstantBidModel(validationData, trainData=None, train=False, writeResult
     # myEvaluator = Evaluator.Evaluator(25000*1000, bids, validationData.getTrainData())
     # myEvaluator.computePerformanceMetrics()
     myEvaluator = Evaluator.Evaluator()
-    myEvaluator.computePerformanceMetricsDF(25000 * 1000, bids, validationData)
+    myEvaluator.computePerformanceMetricsDF(6250 * 1000, bids, validationData)
     myEvaluator.printResult()
 
 def exeGaussianRandomBidModel(validationData, trainData=None, writeResult2CSV=False):
@@ -41,7 +41,7 @@ def exeGaussianRandomBidModel(validationData, trainData=None, writeResult2CSV=Fa
     # myEvaluator = Evaluator.Evaluator(25000*1000, bids, validationData.getTrainData())
     # myEvaluator.computePerformanceMetrics()
     myEvaluator = Evaluator.Evaluator()
-    myEvaluator.computePerformanceMetricsDF(25000 * 1000, bids, validationData)
+    myEvaluator.computePerformanceMetricsDF(6250 * 1000, bids, validationData)
     myEvaluator.printResult()
 
 def exeUniformRandomBidModel(validationData, trainData=None, writeResult2CSV=False):
@@ -57,10 +57,10 @@ def exeUniformRandomBidModel(validationData, trainData=None, writeResult2CSV=Fal
     # myEvaluator = Evaluator.Evaluator(25000*1000, bids, validationData.getTrainData())
     # myEvaluator.computePerformanceMetrics()
     myEvaluator = Evaluator.Evaluator()
-    myEvaluator.computePerformanceMetricsDF(25000 * 1000, bids, validationData)
+    myEvaluator.computePerformanceMetricsDF(6250 * 1000, bids, validationData)
     myEvaluator.printResult()
 
-def exeXGBoostBidModel(validationData, trainData=None, writeResult2CSV=False):
+def exeXGBoostBidModel(validationData, trainData=None, writeResult2CSV=False, testMode=True):
     Y_column = 'click'
     X_column = list(trainDF)
     unwanted_Column = ['click', 'bidid', 'bidprice', 'payprice', 'userid', 'IP', 'url', 'creative', 'keypage']
@@ -73,9 +73,10 @@ def exeXGBoostBidModel(validationData, trainData=None, writeResult2CSV=False):
     if writeResult2CSV:
         ipinyouWriter.ResultWriter().writeResult("resultXGBoostBidModel.csv", bids)
 
-    myEvaluator = Evaluator.Evaluator()
-    myEvaluator.computePerformanceMetricsDF(25000 * 1000, bids, validationData)
-    myEvaluator.printResult()
+    if not testMode:
+        myEvaluator = Evaluator.Evaluator()
+        myEvaluator.computePerformanceMetricsDF(6250 * 1000, bids, validationData)
+        myEvaluator.printResult()
 
     return xgd.getY_Pred(validationData)
 
@@ -98,7 +99,7 @@ def exeLogisticRegressionBidModel(validationData=None, trainData=None, writeResu
     if writeResult2CSV:
         ipinyouWriter.ResultWriter().writeResult("LRbidModelresult.csv", bids)
     myEvaluator = Evaluator.Evaluator()
-    myEvaluator.computePerformanceMetricsDF(25000*1000, bids, validationData)
+    myEvaluator.computePerformanceMetricsDF(6250*1000, bids, validationData)
     myEvaluator.printResult()
 
 def exeLogisticRegressionBidModel_v2(validationReader=None, trainReader=None, writeResult2CSV=False):
@@ -113,17 +114,19 @@ def exeLogisticRegressionBidModel_v2(validationReader=None, trainReader=None, wr
 
     lbm = LinearBidModel_v2(cBudget=272.412385 * 1000, avgCTR=0.2)
     lbm.trainModel(X_train, Y_train)
-    # lbm.gridSearchandCrossValidate(X_train, Y_train)
+    lbm.gridSearchandCrossValidate(X_train, Y_train)
     # print (validationReader.getDataFrame().info())
     v_df = validationReader.getDataFrame()
 
-    bids = lbm.getBidPrice(X_val, v_df)
+    y_pred, bids = lbm.getBidPrice(X_val, v_df)
     if writeResult2CSV:
         ipinyouWriter.ResultWriter().writeResult("resultLogisticRegressionBidModel.csv", bids)
 
-    myEvaluator = Evaluator.Evaluator()
-    myEvaluator.computePerformanceMetricsDF(25000 * 1000, bids, v_df)
-    myEvaluator.printResult()
+    # myEvaluator = Evaluator.Evaluator()
+    # myEvaluator.computePerformanceMetricsDF(6250 * 1000, bids, v_df)
+    # myEvaluator.printResult()
+
+    return y_pred
 
 def exeSGDBidModel(validationData=None, trainData=None, writeResult2CSV=False):
     # Get regressionFormulaX
@@ -145,10 +148,37 @@ def exeSGDBidModel(validationData=None, trainData=None, writeResult2CSV=False):
     if writeResult2CSV:
         ipinyouWriter.ResultWriter().writeResult("SGDbidModelresult.csv", bids)
     myEvaluator = Evaluator.Evaluator()
-    myEvaluator.computePerformanceMetricsDF(25000*1000, bids, validationData)
+    myEvaluator.computePerformanceMetricsDF(6250*1000, bids, validationData)
     myEvaluator.printResult()
 
-def exeFM_ALSBidModel(validationDataOneHot=None, trainDataOneHot=None, validationData=None, writeResult2CSV=False):
+# def exeFM_ALSBidModel(validationDataOneHot=None, trainDataOneHot=None, validationData=None, writeResult2CSV=False):
+def exeFM_ALSBidModel(testDF=None, validateDF=None, trainDF=None, writeResult2CSV=False):
+    print("============ Factorisation Machine bid model....setting up")
+    combinedDF = testDF
+    X_column = list(combinedDF)
+    unwanted_Column = ['click', 'bidid', 'bidprice', 'payprice', 'userid', 'IP', 'url', 'creative', 'keypage']
+    [X_column.remove(i) for i in unwanted_Column]
+    final_x = X_column[0]
+    for i in range(1, len(X_column)):
+        final_x = final_x + ' + ' + X_column[i]
+
+    print("FastFM classification only accepts -1 and 1 as Gold labels. Changing gold labels from 0 to -1")
+    combinedDF['click'] = combinedDF['click'].map({0: -1, 1: 1})
+    validateDF['click'] = validateDF['click'].map({0: -1, 1: 1})
+    # combinedDF.to_csv(path_or_buf="combinedDF.csv")
+    print("Performing one hot encoding of combined set")
+    combinedDF = pd.get_dummies(data=combinedDF, sparse=True, columns=X_column)
+    print("combinedDF Cols:", list(combinedDF))
+    print("Split back into train and val sets...gonna take a while")
+    trainDataOneHot = combinedDF.ix[0:9928]
+    validationDataOneHot = combinedDF.ix[9929:]
+    trainDF.to_csv(path_or_buf="trainDF.csv")
+    validateDF.to_csv(path_or_buf="validateDF.csv")
+
+
+
+
+
     # Get regressionFormulaX
     X_column = list(trainDataOneHot)
     unwanted_Column = ['click', 'bidid', 'bidprice', 'payprice', 'userid', 'IP', 'url', 'creative', 'keypage']
@@ -159,7 +189,7 @@ def exeFM_ALSBidModel(validationDataOneHot=None, trainDataOneHot=None, validatio
 
     fmBidModel=FMBidModel.FMBidModel(regressionFormulaY='click', regressionFormulaX=X_column, cBudget=272.412385 * 1000, avgCTR=0.2, modelType='fmclassificationals')
     fmBidModel.trainModel(trainDataOneHot, retrain=True, modelFile="FMALSClassifier.pkl")
-    fmBidModel.validateModel(validationDataOneHot, validationData)
+    fmBidModel.validateModel(validationDataOneHot, validateDF)
     # lrBidModel.gridSearchandCrossValidate(trainData.getDataFrame())
 
     bids = fmBidModel.getBidPrice(validationDataOneHot)
@@ -168,11 +198,42 @@ def exeFM_ALSBidModel(validationDataOneHot=None, trainDataOneHot=None, validatio
     myEvaluator = Evaluator.Evaluator()
 
     #Convert back to label 1 and 0 for evaluator
-    validationData['click'] = validationData['click'].map({-1: 0, 1: 1})
-    myEvaluator.computePerformanceMetricsDF(25000*1000, bids, validationData)
+    validateDF['click'] = validateDF['click'].map({-1: 0, 1: 1})
+    myEvaluator.computePerformanceMetricsDF(6250*1000, bids, validateDF)
     myEvaluator.printResult()
 
-def exeFM_SGDBidModel(validationDataOneHot=None, trainDataOneHot=None, validationData=None, writeResult2CSV=False):
+
+    #TODO return y_pred
+    #return y_pred
+
+# def exeFM_SGDBidModel(validationDataOneHot=None, trainDataOneHot=None, validationData=None, writeResult2CSV=False):
+def exeFM_SGDBidModel(testDF=None, validateDF=None, trainDF=None, writeResult2CSV=False):
+    print("============ Factorisation Machine bid model....setting up")
+    combinedDF = testDF
+    X_column = list(combinedDF)
+    unwanted_Column = ['click', 'bidid', 'bidprice', 'payprice', 'userid', 'IP', 'url', 'creative', 'keypage']
+    [X_column.remove(i) for i in unwanted_Column]
+    final_x = X_column[0]
+    for i in range(1, len(X_column)):
+        final_x = final_x + ' + ' + X_column[i]
+
+    print("FastFM classification only accepts -1 and 1 as Gold labels. Changing gold labels from 0 to -1")
+    combinedDF['click'] = combinedDF['click'].map({0: -1, 1: 1})
+    validateDF['click'] = validateDF['click'].map({0: -1, 1: 1})
+    # combinedDF.to_csv(path_or_buf="combinedDF.csv")
+    print("Performing one hot encoding of combined set")
+    combinedDF = pd.get_dummies(data=combinedDF, sparse=True, columns=X_column)
+    print("combinedDF Cols:", list(combinedDF))
+    print("Split back into train and val sets...gonna take a while")
+    trainDataOneHot = combinedDF.ix[0:9928]
+    validationDataOneHot = combinedDF.ix[9929:]
+    trainDF.to_csv(path_or_buf="trainDF.csv")
+    validateDF.to_csv(path_or_buf="validateDF.csv")
+
+
+
+
+
     # Get regressionFormulaX
     X_column = list(trainDataOneHot)
     unwanted_Column = ['click', 'bidid', 'bidprice', 'payprice', 'userid', 'IP', 'url', 'creative', 'keypage']
@@ -181,9 +242,9 @@ def exeFM_SGDBidModel(validationDataOneHot=None, trainDataOneHot=None, validatio
     for i in range(1, len(X_column)):
         final_x = final_x + ' + ' + X_column[i]
     #TODO: FM with SGD is currently predicting all click as 0. Training was also stuck at click=0. Will need to analyse and fix.
-    fmBidModel=FMBidModel.FMBidModel(regressionFormulaY='click', regressionFormulaX=X_column, cBudget=272.412385 * 1000, avgCTR=0.2, modelType='fmclassificationsgd')
+    fmBidModel = FMBidModel.FMBidModel(regressionFormulaY='click', regressionFormulaX=X_column, cBudget=272.412385 * 1000, avgCTR=0.2, modelType='fmclassificationsgd')
     fmBidModel.trainModel(trainDataOneHot, retrain=True, modelFile="FMSGDClassifier.pkl")
-    fmBidModel.validateModel(validationDataOneHot, validationData)
+    fmBidModel.validateModel(validationDataOneHot, validateDF)
     # lrBidModel.gridSearchandCrossValidate(trainData.getDataFrame())
 
     bids = fmBidModel.getBidPrice(validationDataOneHot)
@@ -192,17 +253,20 @@ def exeFM_SGDBidModel(validationDataOneHot=None, trainDataOneHot=None, validatio
     myEvaluator = Evaluator.Evaluator()
 
     #Convert back to label 1 and 0 for evaluator
-    validationData['click'] = validationData['click'].map({-1: 0, 1: 1})
-    myEvaluator.computePerformanceMetricsDF(25000*1000, bids, validationData)
+    validateDF['click'] = validateDF['click'].map({-1: 0, 1: 1})
+    myEvaluator.computePerformanceMetricsDF(6250*1000, bids, validateDF)
     myEvaluator.printResult()
 
-def exeEnsemble_v1(validationDataPath, trainDataPath, testDataPath, validateDF,trainDF,testDF, writeResult2CSV=False):
-    xg_y_pred = exeXGBoostBidModel(validationData=validateDF, trainData=trainDF, writeResult2CSV=False)
-    cnn_y_pred = exeCNNBidModel(validationDataPath=validationset, trainDataPath=trainset, testDataPath=testset, writeResult2CSV=False)
+    #TODO return y_pred
+    #return y_pred
+
+def exeEnsemble_v1(trainDF, targetDF, trainPath, validationPath, targetPath, writeResult2CSV=False):
+    xg_y_pred = exeXGBoostBidModel(validationData=targetDF, trainData=trainDF, writeResult2CSV=False)
+    cnn_y_pred = exeCNNBidModel(validationDataPath=validationPath, trainDataPath=trainset, testDataPath=targetPath, writeResult2CSV=False)
     # fm_y_pred = exeFM_SGDBidModel(validationDataOneHot=validateDFonehot, trainDataOneHot=trainDFonehot, validationData=validateDF, writeResult2CSV=True)
 
     # Use XG's 0 when its threshold is below 0.75.
-    y_pred = [0 if xg<0.75 else cnn for xg, cnn in zip(xg_y_pred, cnn_y_pred)]
+    y_pred = [0 if xg < 0.75 else cnn for xg, cnn in zip(xg_y_pred, cnn_y_pred)]
 
     # Use CNN's 1 when its threshold is above 0.2?
     prune_thresh = 0.2
@@ -210,19 +274,63 @@ def exeEnsemble_v1(validationDataPath, trainDataPath, testDataPath, validateDF,t
     be = BidEstimator()
     bidprice = be.linearBidPrice_mConfi(y_pred, 230, 100, prune_thresh)
     # bidprice = be.linearBidPrice_variation(y_pred, 80, 0.2, slotprices=slotprices, prune_thresh=prune_thresh)
-    bids = np.stack([testData['bidid'], bidprice], axis=1)
+    bids = np.stack([targetDF['bidid'], bidprice], axis=1)
     bids = pd.DataFrame(bids, columns=['bidid', 'bidprice'])
 
     if writeResult2CSV:
         ipinyouWriter.ResultWriter().writeResult("resultEnsemble_v1.csv", bids)
 
     myEvaluator = Evaluator.Evaluator()
-    myEvaluator.computePerformanceMetricsDF(25000*1000, bids, testData)
+    myEvaluator.computePerformanceMetricsDF(6250*1000, bids, targetDF)
 
     # Force CNN result to 1 and 0 for F1 score
     y_pred = [1 if i >= prune_thresh else 0 for i in y_pred]
     ce = Evaluator.ClickEvaluator()
-    ce.printClickPredictionScore(y_pred, testData)
+    ce.printClickPredictionScore(y_pred, targetDF)
+
+def exeEnsemble_v2(trainDF, validateDF, testDF,
+                   trainPath, validationPath, testPath,
+                   trainReader, validateReader, testReader,
+                   writeResult2CSV=False):
+    '''
+    Takes the average of y_pred from all models.
+    '''
+    xg_y_pred = exeXGBoostBidModel(validationData=validateDF, trainData=trainDF, writeResult2CSV=False)
+    cnn_y_pred = exeCNNBidModel(validationDataPath=validationPath, trainDataPath=trainPath, testDataPath=testPath,
+                                writeResult2CSV=False)
+    lr_y_pred = exeLogisticRegressionBidModel_v2(validationReader=validationReader, trainReader=trainReader, writeResult2CSV=False)
+    fm_y_pred = exeFM_ALSBidModel(testDF=testDF, validateDF=validateDF, trainDF=trainDF, writeResult2CSV=True)
+
+    # Average them
+    # y_pred = [(xg+ lr) / 2.0 for xg, lr in zip(xg_y_pred, lr_y_pred)]
+    # y_pred = [(xg + cnn + lr)/3.0 for xg, cnn, lr in zip(xg_y_pred, cnn_y_pred, lr_y_pred)]
+    y_pred = [(xg + cnn + lr + fm) / 4.0 for xg, cnn, lr, fm in zip(xg_y_pred, cnn_y_pred, lr_y_pred, fm_y_pred)]
+
+    print("XGBoost AUC:")
+    ClickEvaluator().clickROC(validateDF['click'], xg_y_pred, False)
+    print("CNN AUC:")
+    ClickEvaluator().clickROC(validateDF['click'], cnn_y_pred, False)
+    print("Logistic AUC:")
+    ClickEvaluator().clickROC(validateDF['click'], lr_y_pred, False)
+    print("FastFM AUC:")
+    ClickEvaluator().clickROC(validateDF['click'], fm_y_pred, False)
+
+    print("Ensemble AUC:")
+    ClickEvaluator().clickROC(validateDF['click'], y_pred, False)
+
+    y_pred = np.array(y_pred)
+    click1 = y_pred[validateDF.click == 1]
+    n, bins, patches = ClickEvaluator().clickProbHistogram(pred_prob=click1, color='g',
+                                                           title='Predicted probabilities for clicks=1',
+                                                           # imgpath="./SavedCNNModels/ensemblev2-click1-" + bidmodel.timestr + ".jpg",
+                                                           showGraph=True)
+
+    # click=0 prediction as click=1 probabilities
+    click0 = y_pred[validateDF.click == 0]
+    n, bins, patches = ClickEvaluator().clickProbHistogram(pred_prob=click0, color='r',
+                                                           title='Predicted probabilities for clicks=0',
+                                                           # imgpath="./SavedCNNModels/ensemblev2-click0-" + bidmodel.timestr + ".jpg",
+                                                           showGraph=True)
 
 
 def exeCNNBidModel(validationDataPath, trainDataPath, testDataPath, writeResult2CSV=False):
@@ -313,6 +421,7 @@ trainDF, validateDF, testDF = reader_encoded.getTrainValidationTestDF_V2(trainse
 
 trainReader = ipinyouReader.ipinyouReader(trainset)
 validationReader = ipinyouReader.ipinyouReader(validationset)
+testReader = ipinyouReader.ipinyouReader(testset)
 
 # # Execute Constant Bid Model
 # print("== Constant bid model")
@@ -348,32 +457,18 @@ validationReader = ipinyouReader.ipinyouReader(validationset)
 # exeSGDBidModel(validationData=validateDF, trainData=trainDF, writeResult2CSV=True)
 
 # # Execute FM Bid Model
-# print("============ Factorisation Machine bid model....setting up")
-# combinedDF=testDF
-# X_column = list(combinedDF)
-# unwanted_Column = ['click', 'bidid', 'bidprice', 'payprice', 'userid', 'IP', 'url', 'creative', 'keypage']
-# [X_column.remove(i) for i in unwanted_Column]
-# final_x = X_column[0]
-# for i in range(1, len(X_column)):
-#     final_x = final_x + ' + ' + X_column[i]
-#
-# print("FastFM classification only accepts -1 and 1 as Gold labels. Changing gold labels from 0 to -1")
-# combinedDF['click'] = combinedDF['click'].map({0: -1, 1: 1})
-# validateDF['click'] = validateDF['click'].map({0: -1, 1: 1})
-# # combinedDF.to_csv(path_or_buf="combinedDF.csv")
-# print("Performing one hot encoding of combined set")
-# combinedDF = pd.get_dummies(data=combinedDF,sparse=True, columns=X_column)
-# print("combinedDF Cols:", list(combinedDF))
-# print("Split back into train and val sets...gonna take a while")
-# trainDFonehot=combinedDF.ix[0:9928]
-# validateDFonehot=combinedDF.ix[9929:]
-# # trainDF.to_csv(path_or_buf="trainDF.csv")
-# # validateDF.to_csv(path_or_buf="validateDF.csv")
-#
 # print("============ FM ALS bid model")
-# exeFM_ALSBidModel(validationDataOneHot=validateDFonehot, trainDataOneHot=trainDFonehot, validationData=validateDF, writeResult2CSV=True)
+# exeFM_ALSBidModel(testDF=testDF, validateDF=validateDF, trainDF=trainDF, writeResult2CSV=True)
 #
 # print("============ FM SGD bid model")
 # #No idea why validateDF  got mutated after calling exeFM_ALSBidModel, so have to transform back.
 # validateDF['click'] = validateDF['click'].map({0: -1, 1: 1})
-# exeFM_SGDBidModel(validationDataOneHot=validateDFonehot, trainDataOneHot=trainDFonehot, validationData=validateDF, writeResult2CSV=True)
+# #exeFM_SGDBidModel(validationDataOneHot=validateDFonehot, trainDataOneHot=trainDFonehot, validationData=validateDF, writeResult2CSV=True)
+# exeFM_SGDBidModel(testDF=testDF, validateDF=validateDF, trainDF=trainDF, writeResult2CSV=True)
+
+# Execute Ensemble V2 Bid Model
+print("============ Ensemble V2 Bid Model")
+exeEnsemble_v2(trainDF, validateDF, testDF,
+               trainset, validationset, testset,
+               trainReader, validationReader, testReader,
+               writeResult2CSV=False)
