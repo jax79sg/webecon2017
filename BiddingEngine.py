@@ -10,6 +10,8 @@ from XGBoostBidModel import XGBoostBidModel
 from LinearBidModel_v2 import LinearBidModel_v2
 from BidPriceEstimator import BidEstimator
 from CNNBidModel import *
+from Utilities import Utility
+import FMBidModel
 
 def exeConstantBidModel(validationData, trainData=None, train=False, writeResult2CSV=False):
     # Constant Bidding Model
@@ -260,6 +262,98 @@ def exeFM_SGDBidModel(testDF=None, validateDF=None, trainDF=None, writeResult2CS
     #TODO return y_pred
     #return y_pred
 
+
+
+
+def exeFMBidModel(testDF=None, validateDF=None, trainDF=None, trainReader=None, validationReader=None, testReader=None, writeResult2CSV=False):
+    print("============ Factorisation Machine bid model....setting up")
+
+    timer = Utility()
+    timer.startTimeTrack()
+
+    print("Getting encoded datasets")
+    trainOneHotData, trainY = trainReader.getOneHotData()
+    validationOneHotData, valY = validationReader.getOneHotData(train_cols=trainOneHotData.columns.get_values().tolist())
+    testOneHotData, testY = testReader.getOneHotData(train_cols=trainOneHotData.columns.get_values().tolist())
+    timer.checkpointTimeTrack()
+
+    print("trainOneHotData:",trainOneHotData.shape,list(trainOneHotData))
+    print("trainY:", trainY.shape, list(trainY))
+    print("validationOneHotData:",validationOneHotData.shape,list(validationOneHotData))
+    print("valY:", valY.shape, list(valY))
+
+    fmBidModel=FMBidModel.FMBidModel(cBudget=6250 * 1000, modelType='fmclassificationsgd')
+    print("==========Training starts")
+    # fmBidModel.gridSearchandCrossValidateFastSGD(trainOneHotData, trainY)
+    # timer.checkpointTimeTrack()
+
+    fmBidModel.trainModel(trainOneHotData,trainY, retrain=True, modelFile="data.pruned/fmclassificationsgd.pkl")
+    timer.checkpointTimeTrack()
+
+    print("==========Validation starts")
+    predictedProb=fmBidModel.validateModel(validationOneHotData, valY)
+    timer.checkpointTimeTrack()
+
+    # print("==========Bid optimisation starts")
+    # fmBidModel.optimiseBid(validationOneHotData,valY)
+    # timer.checkpointTimeTrack()
+
+    # best score      0.3683528286042599
+    # noBidThreshold  2.833333e-01
+    # minBid          2.000000e+02
+    # bidRange        9.000000e+01
+    # sigmoidDegree - 1.000000e+01
+    # won             3.432900e+04
+    # click           1.380000e+02
+    # spend           2.729869e+06
+    # trimmed_bids    0.000000e+00
+    # CTR             4.019925e-03
+    # CPM             7.952078e+04
+    # CPC             1.978166e+04
+    # blended_score   3.683528e-01
+
+    # best score      0.3681133881545131
+    # noBidThreshold  2.833333e-01
+    # minBid          2.000000e+02
+    # bidRange        1.000000e+02
+    # sigmoidDegree - 1.000000e+01
+    # won             3.449900e+04
+    # click           1.380000e+02
+    # spend           2.758561e+06
+    # trimmed_bids    0.000000e+00
+    # CTR             4.000116e-03
+    # CPM             7.996061e+04
+    # CPC             1.998957e+04
+    # blended_score   3.681134e-01
+
+
+    # New budget      6250000
+    # FM
+    # best score      0.32755084132163526
+    # noBidThreshold  8.666667e-01
+    # minBid          2.000000e+02
+    # bidRange        2.500000e+02
+    # sigmoidDegree - 1.000000e+01
+    # won             1.461000e+04
+    # click           1.170000e+02
+    # spend           1.124960e+06
+    # trimmed_bids    0.000000e+00
+    # CTR             8.008214e-03
+    # CPM             7.699932e+04
+    # CPC             9.615043e+03
+    # blended_score   3.275508e-01
+
+    # print("==========Getting  bids")
+    ## 25000 budget
+    # bidIdPriceDF=fmBidModel.getBidPrice(validationOneHotData,valY,noBidThreshold=0.2833333,minBid=200,bidRange=100,sigmoidDegree=-10)
+    ## 6250 budget
+    # bidIdPriceDF=fmBidModel.getBidPrice(validationOneHotData,valY,noBidThreshold=0.8666667,minBid=200,bidRange=250,sigmoidDegree=-10)
+    # print("bidIdPriceDF:",bidIdPriceDF.shape, list(bidIdPriceDF))
+    # bidIdPriceDF.to_csv("mybids.csv")
+    # timer.checkpointTimeTrack()
+
+    return predictedProb
+
 def exeEnsemble_v1(trainDF, targetDF, trainPath, validationPath, targetPath, writeResult2CSV=False):
     xg_y_pred = exeXGBoostBidModel(validationData=targetDF, trainData=trainDF, writeResult2CSV=False)
     cnn_y_pred = exeCNNBidModel(validationDataPath=validationPath, trainDataPath=trainset, testDataPath=targetPath, writeResult2CSV=False)
@@ -296,15 +390,15 @@ def exeEnsemble_v2(trainDF, validateDF, testDF,
     Takes the average of y_pred from all models.
     '''
     xg_y_pred = exeXGBoostBidModel(validationData=validateDF, trainData=trainDF, writeResult2CSV=False)
-    cnn_y_pred = exeCNNBidModel(validationDataPath=validationPath, trainDataPath=trainPath, testDataPath=testPath,
-                                writeResult2CSV=False)
+    cnn_y_pred = exeCNNBidModel(validationDataPath=validationPath, trainDataPath=trainPath, testDataPath=testPath, writeResult2CSV=False)
     lr_y_pred = exeLogisticRegressionBidModel_v2(validationReader=validationReader, trainReader=trainReader, writeResult2CSV=False)
-    fm_y_pred = exeFM_ALSBidModel(testDF=testDF, validateDF=validateDF, trainDF=trainDF, writeResult2CSV=True)
+    fm_y_pred=exeFMBidModel(trainReader=trainReader, validationReader=validateReader, testReader=testReader, writeResult2CSV=False)
 
     # Average them
     # y_pred = [(xg+ lr) / 2.0 for xg, lr in zip(xg_y_pred, lr_y_pred)]
     # y_pred = [(xg + cnn + lr)/3.0 for xg, cnn, lr in zip(xg_y_pred, cnn_y_pred, lr_y_pred)]
     y_pred = [(xg + cnn + lr + fm) / 4.0 for xg, cnn, lr, fm in zip(xg_y_pred, cnn_y_pred, lr_y_pred, fm_y_pred)]
+
 
     print("XGBoost AUC:")
     ClickEvaluator().clickROC(validateDF['click'], xg_y_pred, False)
