@@ -70,7 +70,7 @@ class LinearBidModel_v2(BidModelInterface):
         #               }
 
         param_grid = [{
-                            'alpha':['0.0001','0.0005','0.0010','0.0015'],
+                            'alpha':[0.0005,0.0010,0.0015,0.0025,0.004],
                           'penalty': ['l2', 'l1']
                       }
 
@@ -86,9 +86,9 @@ class LinearBidModel_v2(BidModelInterface):
 
         optimized_LR = GridSearchCV(SGDClassifier(),
                                      param_grid=param_grid,
-                                     scoring='accuracy',
+                                     scoring='roc_auc',
                                      cv=5,
-                                     n_jobs=-1,
+                                     # n_jobs=-1,
                                      error_score='raise')
         print("Grid Searching...")
         self._model = optimized_LR.fit(xTrain, yTrain)
@@ -129,13 +129,13 @@ if __name__ == "__main__":
     X_val = validationOneHotData
     Y_val = valY['click']
 
-    lbm = LinearBidModel_v2(cBudget=272.412385 * 1000, avgCTR=0.2)
-    lbm.trainModel(X_train, Y_train)
-    # lbm.gridSearchandCrossValidate(X_train, Y_train)
+    lbm = LinearBidModel_v2(cBudget=6250 * 1000, avgCTR=0.2)
+    # lbm.trainModel(X_train, Y_train)
+    lbm.gridSearchandCrossValidate(X_train, Y_train)
     # lbm.validateModel(X_val, Y_val)
 
-    print("==========Bid optimisation starts")
-    lbm.optimiseBid(validationOneHotData, valY)
+    # print("==========Bid optimisation starts")
+    # lbm.optimiseBid(validationOneHotData, valY)
 
     # lbm.getBidPrice(X_val)
 
