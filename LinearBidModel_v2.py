@@ -80,8 +80,8 @@ class LinearBidModel_v2(BidModelInterface):
         #               }
 
         param_grid = [{
-                            'alpha':[0.0005,0.0010,0.0015,0.0025,0.004],
-                          'penalty': ['l2', 'l1']
+                            'alpha':[0.0050,0.0015,0.0025,0.004]
+                          # 'penalty': ['l1']
                       }
 
                       #   ,
@@ -100,6 +100,7 @@ class LinearBidModel_v2(BidModelInterface):
                                      cv=3,
                                      n_jobs=-1,
                                      error_score='raise',
+                                     verbose=0
                                      )
         print("Grid Searching...")
         self._model = optimized_LR.fit(xTrain, yTrain)
