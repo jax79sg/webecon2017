@@ -273,14 +273,15 @@ class FMBidModel(BidModelInterface):
             # xTrain, yTrain = ImbalanceSampling().oversampling_ADASYN(X=xTrain, y=yTrain)
 
         # instantiate a logistic regression model
-        # TODO: Need to tune the model parameters. SGD FastFM still perform better in terms of speed and AUC. Shall stick with it.
         if(self._modelType=='fmclassificationals'):
+            #Don't use this
             print("Factorisation Machine with ALS solver will be used for training")
             print("Converting X to sparse matrix, required by FastFM")
             xTrain= scipy.sparse.csc_matrix(xTrain)
             self._model = als.FMClassification(n_iter=3000, rank=2, verbose=1)
 
         elif(self._modelType=='fmclassificationsgd'):
+            # Use this, best results
             print("Factorisation Machine with SGD solver will be used for training")
             print("Converting X to sparse matrix, required by FastFM")
             xTrain= scipy.sparse.csc_matrix(xTrain)
@@ -291,6 +292,7 @@ class FMBidModel(BidModelInterface):
             self._model = SGDFMClassification(n_iter=200000, rank=16, l2_reg_w=0.0005, l2_reg_V=0.0005, l2_reg=0.0005,step_size=0.01)
 
         elif(self._modelType=='polylearn'):
+            # Don't use this
             print("Factorisation Machine from scitkit-learn-contrib polylearn will be used for training")
             self._model = FactorizationMachineClassifier(degree=2, loss='squared_hinge', n_components=2, alpha=1,
                  beta=1, tol=1e-3, fit_lower='explicit', fit_linear=True,
@@ -417,7 +419,7 @@ class FMBidModel(BidModelInterface):
             click0list = yVal[yVal['click'] == -1].index.tolist()
             print("yVal:", (yVal).shape)
             print("click1list:",len(click1list))
-            print("click1list:", len(click0list))
+            print("click0list:", len(click0list))
 
             print("Converting to sparse matrix")
             xValidate = scipy.sparse.csc_matrix(xValidate.as_matrix())
@@ -436,31 +438,32 @@ class FMBidModel(BidModelInterface):
             print("roc_auc",roc_auc_score(yVal['click'], predictedProb[:,1]))
 
             #Get the Goldclick==1 and retrieve the predictedProb1 for it
-            Evaluator.ClickEvaluator().clickProbHistogram(predictedOneProbForclick1,title='Click=1',showGraph=False)
+            if(False): #Set this to True if want to see plots
+                Evaluator.ClickEvaluator().clickProbHistogram(predictedOneProbForclick1,title='Click=1',showGraph=False)
 
-            # Get the Goldclick==0 and retrieve the predictedProb1 for it
-            Evaluator.ClickEvaluator().clickProbHistogram(predictedOneProbForclick0,title='Click=0',showGraph=False)
+                # Get the Goldclick==0 and retrieve the predictedProb1 for it
+                Evaluator.ClickEvaluator().clickProbHistogram(predictedOneProbForclick0,title='Click=0',showGraph=False)
 
-            Evaluator.ClickEvaluator().clickROC(yVal['click'],predictedProb[:,1],showGraph=False)
+                Evaluator.ClickEvaluator().clickROC(yVal['click'],predictedProb[:,1],showGraph=False)
 
-            #Convert -1 to 0 as Evaluator printClickPredictionScore cannot handle -1
-            predicted[predicted==-1] = 0
-            yVal['click'] = yVal['click'].map({-1: 0, 1: 1})
-            Evaluator.ClickEvaluator().printClickPredictionScore(predicted,yVal['click'])
+                #Convert -1 to 0 as Evaluator printClickPredictionScore cannot handle -1
+                predicted[predicted==-1] = 0
+                yVal['click'] = yVal['click'].map({-1: 0, 1: 1})
+                Evaluator.ClickEvaluator().printClickPredictionScore(predicted,yVal['click'])
 
-            cnf_matrix = confusion_matrix(yVal['click'], predicted)
+                # cnf_matrix = confusion_matrix(yVal['click'], predicted)
 
-            Evaluator.ClickEvaluator().plot_confusion_matrix(cm=cnf_matrix,classes=set(yVal['click']),plotgraph=False,printStats=False)
-            #Change back, just in case
-            predicted[predicted==0] = -1
-            yVal['click'] = yVal['click'].map({0: -1, 1: 1})
+                # Evaluator.ClickEvaluator().plot_confusion_matrix(cm=cnf_matrix,classes=set(yVal['click']),plotgraph=False,printStats=False)
+                #Change back, just in case
+                predicted[predicted==0] = -1
+                yVal['click'] = yVal['click'].map({0: -1, 1: 1})
 
-            print("Gold label: ",yVal['click'])
-            print("predicted label: ", predicted)
+                print("Gold label: ",yVal['click'])
+                print("predicted label: ", predicted)
 
-            print("Writing to validated prediction csv")
-            valPredictionWriter = ResultWriter()
-            valPredictionWriter.writeResult(filename="data.pruned/FastFMpredictValidate.csv", data=predicted)
+                print("Writing to validated prediction csv")
+                valPredictionWriter = ResultWriter()
+                valPredictionWriter.writeResult(filename="data.pruned/FastFMpredictValidate.csv", data=predicted)
 
         else:
             print("Error: No model was trained in this instance....")
