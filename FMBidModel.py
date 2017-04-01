@@ -397,10 +397,12 @@ class FMBidModel(BidModelInterface):
 
     def validateModel(self, xVal, yVal):
         """
+        Changelog:
+        - 1/4 KS Return PredictProb for emsemble
         Perform validation of model with different metrics and graphs for analysis
         :param xVal:
         :param yVal:
-        :return:
+        :return: predictedProb[:,1]  Prob of all click=1
         """
         if(self._model!=None):
             print("Setting up X Y validation for prediction")
@@ -434,12 +436,12 @@ class FMBidModel(BidModelInterface):
             print("roc_auc",roc_auc_score(yVal['click'], predictedProb[:,1]))
 
             #Get the Goldclick==1 and retrieve the predictedProb1 for it
-            Evaluator.ClickEvaluator().clickProbHistogram(predictedOneProbForclick1,title='Click=1',showGraph=True)
+            Evaluator.ClickEvaluator().clickProbHistogram(predictedOneProbForclick1,title='Click=1',showGraph=False)
 
             # Get the Goldclick==0 and retrieve the predictedProb1 for it
-            Evaluator.ClickEvaluator().clickProbHistogram(predictedOneProbForclick0,title='Click=0',showGraph=True)
+            Evaluator.ClickEvaluator().clickProbHistogram(predictedOneProbForclick0,title='Click=0',showGraph=False)
 
-            Evaluator.ClickEvaluator().clickROC(yVal['click'],predictedProb[:,1],showGraph=True)
+            Evaluator.ClickEvaluator().clickROC(yVal['click'],predictedProb[:,1],showGraph=False)
 
             #Convert -1 to 0 as Evaluator printClickPredictionScore cannot handle -1
             predicted[predicted==-1] = 0
@@ -448,7 +450,7 @@ class FMBidModel(BidModelInterface):
 
             cnf_matrix = confusion_matrix(yVal['click'], predicted)
 
-            Evaluator.ClickEvaluator().plot_confusion_matrix(cm=cnf_matrix,classes=set(yVal['click']),plotgraph=True,printStats=True)
+            Evaluator.ClickEvaluator().plot_confusion_matrix(cm=cnf_matrix,classes=set(yVal['click']),plotgraph=False,printStats=False)
             #Change back, just in case
             predicted[predicted==0] = -1
             yVal['click'] = yVal['click'].map({0: -1, 1: 1})
@@ -462,6 +464,8 @@ class FMBidModel(BidModelInterface):
 
         else:
             print("Error: No model was trained in this instance....")
+
+        return predictedProb[:,1]
 
 
 if __name__ == "__main__":
