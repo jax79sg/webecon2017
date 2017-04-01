@@ -1,7 +1,7 @@
 import ipinyouReader
 from sklearn.grid_search import GridSearchCV
 import Evaluator
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import SGDClassifier
 import numpy as np
 from UserException import ModelNotTrainedException
 from BidModels import BidModelInterface
@@ -37,7 +37,7 @@ class LinearBidModel_v2(BidModelInterface):
         return bids
 
     def trainModel(self, xTrain, yTrain):
-        self._model = LogisticRegression(C=0.21, penalty='l1', solver='liblinear')
+        self._model = SGDClassifier(alpha=0.0001, penalty='l1',loss='log')
         self._model = self._model.fit(xTrain, yTrain)  # Loss function:liblinear
 
         pred = self._model.predict_proba(xTrain)
@@ -62,12 +62,18 @@ class LinearBidModel_v2(BidModelInterface):
 
     def gridSearchandCrossValidate(self, xTrain, yTrain):
         ## Setup Grid Search parameter
+        # param_grid = [{
+        #                   'solver': ['liblinear'],
+        #                   'C': [0.15, 0.19, 0.2, 0.21, 0.25],
+        #                   'class_weight':[None],  # None is better
+        #                   'penalty': ['l2', 'l1'],
+        #               }
+
         param_grid = [{
-                          'solver': ['liblinear'],
-                          'C': [0.15, 0.19, 0.2, 0.21, 0.25],
-                          'class_weight':[None],  # None is better
-                          'penalty': ['l2', 'l1'],
+                            'alpha':['0.0001','0.0005','0.0010','0.0015'],
+                          'penalty': ['l2', 'l1']
                       }
+
                       #   ,
                       # {
                       #     'solver': ['newton-cg', 'lbfgs', 'sag'],
@@ -78,7 +84,7 @@ class LinearBidModel_v2(BidModelInterface):
                       # }
                       ]
 
-        optimized_LR = GridSearchCV(LogisticRegression(),
+        optimized_LR = GridSearchCV(SGDClassifier(),
                                      param_grid=param_grid,
                                      scoring='accuracy',
                                      cv=5,
@@ -93,10 +99,20 @@ class LinearBidModel_v2(BidModelInterface):
         for i in range(len(scores)):
             print(optimized_LR.grid_scores_[i])
 
+    def optimiseBid(self, xTestDF,yTestDF):
+        print(" xTestDF:",xTestDF.shape,"\n",list(xTestDF))
+        print(" yTestDF:", yTestDF.shape, "\n", list(yTestDF))
+        result = pd.concat([xTestDF, yTestDF], axis=1)
+        print(" result:", result.shape, "\n", list(result))
+        predProb = self._model.predict_proba(xTestDF)
+
+        be = BidEstimator()
+        be.gridSearch_bidPrice(predProb[:,1], 0.5, 0, result, bidpriceest_model='linearBidPrice')
+
 if __name__ == "__main__":
-    trainset="../dataset/train_cleaned_prune.csv"
-    validationset="../dataset/validation_cleaned_prune.csv"
-    testset="../dataset/test.csv"
+    trainset="data.final/train1_cleaned_prune.csv"
+    validationset="data.final/validation_cleaned.csv"
+    testset="data.final/test.csv"
     # trainset="../dataset/debug.csv"
     # validationset="../dataset/debug.csv"
     # testset="../dataset/debug.csv"
@@ -116,7 +132,11 @@ if __name__ == "__main__":
     lbm = LinearBidModel_v2(cBudget=272.412385 * 1000, avgCTR=0.2)
     lbm.trainModel(X_train, Y_train)
     # lbm.gridSearchandCrossValidate(X_train, Y_train)
-    lbm.validateModel(X_val, Y_val)
+    # lbm.validateModel(X_val, Y_val)
+
+    print("==========Bid optimisation starts")
+    lbm.optimiseBid(validationOneHotData, valY)
+
     # lbm.getBidPrice(X_val)
 
 
