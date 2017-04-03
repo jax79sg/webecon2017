@@ -9,6 +9,8 @@ from BidPriceEstimator import BidEstimator
 import pandas as pd
 
 class LinearBidModel_v2(BidModelInterface):
+    _model=None
+
     def __init__(self, cBudget, avgCTR):
         self._cBudget = cBudget
         self._avgCTR = avgCTR
@@ -47,7 +49,7 @@ class LinearBidModel_v2(BidModelInterface):
     #     return pred
 
     def trainModel(self, xTrain, yTrain):
-        self._model = SGDClassifier(alpha=0.0001, penalty='l1', loss='log', n_iter=200)
+        self._model = SGDClassifier(alpha=0.0005, penalty='l2', loss='log', n_iter=200)
         self._model = self._model.fit(xTrain, yTrain)  # Loss function:liblinear
 
         pred = self._model.predict_proba(xTrain)
@@ -142,8 +144,8 @@ if __name__ == "__main__":
     Y_val = valY['click']
 
     lbm = LinearBidModel_v2(cBudget=6250 * 1000, avgCTR=0.2)
-    # lbm.trainModel(X_train, Y_train)
-    lbm.gridSearchandCrossValidate(X_train, Y_train)
+    lbm.trainModel(X_train, Y_train)
+    # lbm.gridSearchandCrossValidate(X_train, Y_train)
     # lbm.validateModel(X_val, Y_val)
 
     # print("==========Bid optimisation starts")
