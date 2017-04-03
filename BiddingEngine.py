@@ -116,7 +116,7 @@ def exeLogisticRegressionBidModel_v2(validationReader=None, trainReader=None, wr
 
     lbm = LinearBidModel_v2(cBudget=272.412385 * 1000, avgCTR=0.2)
     lbm.trainModel(X_train, Y_train)
-    lbm.gridSearchandCrossValidate(X_train, Y_train)
+    # lbm.gridSearchandCrossValidate(X_train, Y_train)
     # print (validationReader.getDataFrame().info())
     v_df = validationReader.getDataFrame()
 
@@ -292,6 +292,54 @@ def exeEnsemble_v2(trainDF, validateDF, testDF,
                                                            # imgpath="./SavedCNNModels/ensemblev2-click0-" + bidmodel.timestr + ".jpg",
                                                            showGraph=True)
 
+def exeEnsemble_Weighted(trainDF, validateDF, testDF,
+                   trainPath, validationPath, testPath,
+                   trainReader, validateReader, testReader,
+                   writeResult2CSV=False):
+    '''
+    Takes the average of y_pred from all models.
+    '''
+    xg_y_pred = exeXGBoostBidModel(validationData=validateDF, trainData=trainDF, writeResult2CSV=False)
+    cnn_y_pred = exeCNNBidModel(validationDataPath=validationPath, trainDataPath=trainPath, testDataPath=testPath, writeResult2CSV=False)
+    lr_y_pred = exeLogisticRegressionBidModel_v2(validationReader=validationReader, trainReader=trainReader, writeResult2CSV=False)
+    fm_y_pred=exeFMBidModel(trainReader=trainReader, validationReader=validateReader, testReader=testReader, writeResult2CSV=False)
+
+    # Average them
+    # y_pred = [(xg+ lr) / 2.0 for xg, lr in zip(xg_y_pred, lr_y_pred)]
+    # y_pred = [(xg + cnn + lr)/3.0 for xg, cnn, lr in zip(xg_y_pred, cnn_y_pred, lr_y_pred)]
+    y_pred = [(xg*0.4 + cnn*0.4 + lr*0.05 + fm*0.15)  for xg, cnn, lr, fm in zip(xg_y_pred, cnn_y_pred, lr_y_pred, fm_y_pred)]
+
+    #This one hits 0.874 for the xg/lr/fm emsemble models, perviously 0.861 (Can't run CNN on my mac yet, got this convolution missing error)
+    # y_pred = [(xg * 0.6 + lr * 0.1 + fm * 0.3) for xg, lr, fm in zip(xg_y_pred, lr_y_pred, fm_y_pred)]
+
+
+    print("XGBoost AUC:")
+    ClickEvaluator().clickROC(validateDF['click'], xg_y_pred, False)
+    # print("CNN AUC:")
+    # ClickEvaluator().clickROC(validateDF['click'], cnn_y_pred, False)
+    print("Logistic AUC:")
+    ClickEvaluator().clickROC(validateDF['click'], lr_y_pred, False)
+    print("FastFM AUC:")
+    ClickEvaluator().clickROC(validateDF['click'], fm_y_pred, False)
+
+    print("Ensemble AUC:")
+    ClickEvaluator().clickROC(validateDF['click'], y_pred, False)
+
+    y_pred = np.array(y_pred)
+    click1 = y_pred[validateDF.click == 1]
+    n, bins, patches = ClickEvaluator().clickProbHistogram(pred_prob=click1, color='g',
+                                                           title='Predicted probabilities for clicks=1',
+                                                           # imgpath="./SavedCNNModels/ensemblev2-click1-" + bidmodel.timestr + ".jpg",
+                                                           showGraph=True)
+
+    # click=0 prediction as click=1 probabilities
+    click0 = y_pred[validateDF.click == 0]
+    n, bins, patches = ClickEvaluator().clickProbHistogram(pred_prob=click0, color='r',
+                                                           title='Predicted probabilities for clicks=0',
+                                                           # imgpath="./SavedCNNModels/ensemblev2-click0-" + bidmodel.timestr + ".jpg",
+                                                           showGraph=True)
+
+
 
 def exeCNNBidModel(validationDataPath, trainDataPath, testDataPath, writeResult2CSV=False):
     print("===== exeCNNBidModel start =====")
@@ -427,8 +475,14 @@ testReader = ipinyouReader.ipinyouReader(testset)
 # exeFM_SGDBidModel(testDF=testDF, validateDF=validateDF, trainDF=trainDF, writeResult2CSV=True)
 
 # Execute Ensemble V2 Bid Model
+# print("============ Ensemble V2 Bid Model")
+# exeEnsemble_v2(trainDF, validateDF, testDF,
+#                trainset, validationset, testset,
+#                trainReader, validationReader, testReader,
+#                writeResult2CSV=False)
+
 print("============ Ensemble V2 Bid Model")
-exeEnsemble_v2(trainDF, validateDF, testDF,
+exeEnsemble_Weighted(trainDF, validateDF, testDF,
                trainset, validationset, testset,
                trainReader, validationReader, testReader,
                writeResult2CSV=False)
