@@ -136,14 +136,14 @@ class BidEstimator():
         # TODO this could be generalised to other models too.
         performance_list = []
         if bidpriceest_model == 'linearBidPrice':
-            for base_bid in range(50, 500, 10):  # range(100,300,10):
+            for base_bid in range(50, 300, 10):  # range(100,300,10):
                 print(" = base_bid = {}".format(base_bid))
                 bids = self.linearBidPrice(y_prob, base_bid, avg_ctr)
                 # format bids into bidids pandas frame
                 est_bids_df = gold_df[['bidid']].copy()
                 est_bids_df['bidprice'] = bids
                 myEvaluator = Evaluator()
-                myEvaluator.computePerformanceMetricsDF(budget, est_bids_df, gold_df, verbose=True)
+                myEvaluator.computePerformanceMetricsDF(budget, est_bids_df, gold_df, verbose=False)
                 # myEvaluator.printResult()
                 myEvaluator.resultDict['base_bid'] = base_bid
                 # print(myEvaluator.resultDict)
@@ -170,7 +170,7 @@ class BidEstimator():
             total_gold_clicks = len(gold_df[gold_df['click'] == 1])
 
             basebid_grid = np.arange(20, 221, 20)
-            variable_grid = np.arange(10, 121, 20)
+            variable_grid = np.arange(20, 121, 20)
             confi_grid = np.arange(0.1, 0.91, 0.1)
             # basebid_grid = np.arange(220, 230, 5)
             # variable_grid = np.arange(0, 20, 10)
