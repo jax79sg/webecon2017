@@ -36,7 +36,7 @@ class BidModelInterface():
 
 
 class ConstantBidModel(BidModelInterface):
-    def __init__(self, defaultbid=300):
+    def __init__(self, defaultbid=77):
         """
         Init the model
         Default bid is a hyperparameter from previous training
@@ -81,6 +81,7 @@ class ConstantBidModel(BidModelInterface):
 
         bestBid = 0
         bestCTR = 0
+        bestClick = 0
         # print(goldlabel.shape)
         for bid in range(searchRange[0], searchRange[1]):
         # for bid in range(1000, 1001):  # To test cutting back budget
@@ -92,23 +93,41 @@ class ConstantBidModel(BidModelInterface):
             myEvaluator = Evaluator()
             resultDict = myEvaluator.computePerformanceMetricsDF(budget, bids, allTrainData)
 
+            # if resultDict['won'] != 0:
+            #     print("Constant bid: {} CTR: {}".format(self.defaultBid, resultDict['click'] / resultDict['won']))
+            # else:
+            #     print("Constant bid: {} CTR: not computed as no. of won is 0".format(self.defaultBid))
+
+            # if resultDict['won'] != 0:
+            #     currentCTR = resultDict['click'] / resultDict['won']
+            # else:
+            #     continue
+
+            # if currentCTR > bestCTR:
+            #     bestCTR = currentCTR
+            #     bestBid = bid
+
             if resultDict['won'] != 0:
-                print("Constant bid: {} CTR: {}".format(self.defaultBid, resultDict['click'] / resultDict['won']))
+                print("Constant bid: {} Clicks: {}".format(self.defaultBid, resultDict['click']))
+                print("bestBid: ", bestBid)
+                print("bestClick: ", bestClick)
             else:
                 print("Constant bid: {} CTR: not computed as no. of won is 0".format(self.defaultBid))
 
+
             if resultDict['won'] != 0:
-                currentCTR = resultDict['click'] / resultDict['won']
+                currentClick = resultDict['click']
             else:
                 continue
 
-            if currentCTR > bestCTR:
-                bestCTR = currentCTR
+            if currentClick > bestClick:
+                bestClick = currentClick
                 bestBid = bid
 
-
+        # print("bestBid: ", bestBid)
+        # print("bestCTR: ", bestCTR)
         print("bestBid: ", bestBid)
-        print("bestCTR: ", bestCTR)
+        print("bestClick: ", bestClick)
 
         self.defaultBid = bestBid
 
@@ -122,6 +141,7 @@ class GaussianRandomBidModel(BidModelInterface):
 
     def getBidPrice(self, allBidid):
         # print("bid: ", oneBidRequest)
+        np.random.seed(5)
         bidprice = np.random.normal(loc=80.25102474739948, scale=6, size=len(allBidid))
         bids = np.stack([allBidid, bidprice], axis=1)
         bids = pd.DataFrame(bids, columns=['bidid', 'bidprice'])
@@ -140,6 +160,7 @@ class UniformRandomBidModel(BidModelInterface):
 
     def getBidPrice(self, allBidid):
         # print("bid: ", oneBidRequest)
+        np.random.seed(5)
         bidprice = np.random.uniform(low=0,high=self.defaultBidUpperBound, size=len(allBidid))
         bids = np.stack([allBidid, bidprice], axis=1)
         bids = pd.DataFrame(bids, columns=['bidid', 'bidprice'])
