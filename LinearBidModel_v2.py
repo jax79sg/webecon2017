@@ -2,6 +2,7 @@ import ipinyouReader
 from sklearn.grid_search import GridSearchCV
 import Evaluator
 from sklearn.linear_model import SGDClassifier
+from Evaluator import ClickEvaluator
 import numpy as np
 from UserException import ModelNotTrainedException
 from BidModels import BidModelInterface
@@ -50,6 +51,7 @@ class LinearBidModel_v2(BidModelInterface):
 
     def trainModel(self, xTrain, yTrain):
         self._model = SGDClassifier(alpha=0.0005, penalty='l2', loss='log', n_iter=200)
+        # self._model = SGDClassifier(alpha=0.0015, penalty='l1', loss='log', n_iter=100)
         self._model = self._model.fit(xTrain, yTrain)  # Loss function:liblinear
 
         pred = self._model.predict_proba(xTrain)
@@ -61,7 +63,7 @@ class LinearBidModel_v2(BidModelInterface):
         pred = [1 if i >= 0.5 else 0 for i in pred]
         ce.printClickPredictionScore(pred, yTrain)
 
-    def validateModel(self, xValidate, yValidate):
+    def validateModel(self, xValidate, yValidate, validateDF):
 
         pred = self._model.predict_proba(xValidate)
         pred = pred[:, 1]
@@ -69,8 +71,22 @@ class LinearBidModel_v2(BidModelInterface):
         ce = Evaluator.ClickEvaluator()
         ce.printRMSE(pred, yValidate)
         ce.clickROC(yValidate, pred, False)
+        click1 = pred[validateDF.click == 1]
+        n, bins, patches = ClickEvaluator().clickProbHistogram(pred_prob=click1, color='g',
+                                                         title='Predicted probabilities for clicks=1',
+                                                         # imgpath="./SavedCNNModels/xgboost-click1-" + bidmodel.timestr + ".jpg",
+                                                         showGraph=True)
+
+        # click=0 prediction as click=1 probabilities
+        click0 = pred[validateDF.click == 0]
+        n, bins, patches = ClickEvaluator().clickProbHistogram(pred_prob=click0, color='r',
+                                                         title='Predicted probabilities for clicks=0',
+                                                         # imgpath="./SavedCNNModels/xgboost-click0-" + bidmodel.timestr + ".jpg",
+                                                         showGraph=True)
         pred = [1 if i >= 0.5 else 0 for i in pred]
         ce.printClickPredictionScore(pred, yValidate)
+
+
 
     def gridSearchandCrossValidate(self, xTrain, yTrain):
         ## Setup Grid Search parameter
@@ -82,9 +98,10 @@ class LinearBidModel_v2(BidModelInterface):
         #               }
 
         param_grid = [{
-                            'alpha':[0.0050,0.0015,0.0025,0.004]
-                          # 'penalty': ['l1']
-                      }
+                            'alpha':[0.0050, 0.0015, 0.0025],
+                            'penalty': ['l1', 'l2', 'elasticnet'],
+                            'n_iter': [50, 100, 200]
+        }
 
                       #   ,
                       # {
@@ -121,7 +138,7 @@ class LinearBidModel_v2(BidModelInterface):
         predProb = self._model.predict_proba(xTestDF)
 
         be = BidEstimator()
-        be.gridSearch_bidPrice(predProb[:,1], 0.5, 0, result, bidpriceest_model='linearBidPrice')
+        be.gridSearch_bidPrice(predProb[:,1], 0.2, 0, result, bidpriceest_model='linearBidPrice')
 
 if __name__ == "__main__":
     trainset="data.final/train1_cleaned_prune.csv"
@@ -143,15 +160,18 @@ if __name__ == "__main__":
     X_val = validationOneHotData
     Y_val = valY['click']
 
-    lbm = LinearBidModel_v2(cBudget=6250 * 1000, avgCTR=0.2)
+    lbm = LinearBidModel_v2(cBudget=110, avgCTR=0.2)
     lbm.trainModel(X_train, Y_train)
     # lbm.gridSearchandCrossValidate(X_train, Y_train)
-    # lbm.validateModel(X_val, Y_val)
+    lbm.validateModel(X_val, Y_val, valY)
 
-    # print("==========Bid optimisation starts")
-    # lbm.optimiseBid(validationOneHotData, valY)
+    print("==========Bid optimisation starts")
+    lbm.optimiseBid(validationOneHotData, valY)
+    # lbm.optimiseBid(trainOneHotData, trainY)
 
     # lbm.getBidPrice(X_val)
+
+
 
 
 
