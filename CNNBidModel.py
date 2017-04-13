@@ -1,5 +1,6 @@
 ## generic packages
 import numpy as np # linear algebra
+np.random.seed(888)#(88888) #for reproducibility
 import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
 import time
 import os
@@ -83,23 +84,20 @@ class CNNBidModel(BidModelInterface):
         self.gold_val = valY
 
     def getBidPrice(self,y_prob,bidids,base_bid,slotprices,pred_thresh=0.5):
-        avg_ctr = ClickEvaluator().compute_avgCTR(self.Y_train)
+        #avg_ctr = ClickEvaluator().compute_avgCTR(self.Y_train)
+        avg_ctr = 0.00075 #use fixed ctr from full train set
         print("Train avgCTR = {}".format(avg_ctr))
 
         bid_estimator = BidEstimator()
         #bids = bid_estimator.linearBidPrice(y_pred, 50, avg_ctr)
         #TODO: could add option for alternate  bid strats
-        bids = bid_estimator.linearBidPrice_variation(y_prob,base_bid,avg_ctr,slotprices,pred_thresh)
-        print(bids)
-        # format bids into bidids pandas frame
-        bids_df = bidids.copy()
-        bids_df['bidprice'] = bids
-        ipinyouWriter.ResultWriter().writeResult(self.bids_output_filepath, bids_df)
+        bidids
         return bids_df
 
     def gridSearchBidPrice(self, y_prob, slotprices):
         print("=== Get best bid prices")
-        avg_ctr = ClickEvaluator().compute_avgCTR(self.Y_train)
+        #avg_ctr = ClickEvaluator().compute_avgCTR(self.Y_train)
+        avg_ctr = 0.00075  # use fixed ctr from full train set
         print("Train avgCTR = {}".format(avg_ctr))
 
         bid_estimator = BidEstimator()
@@ -122,8 +120,8 @@ class CNNBidModel(BidModelInterface):
         ## define the model # https://keras.io/layers/convolutional/
         print("== define model")
         model = Sequential()
-        model.add(Convolution1D(nb_filter=512,
-                                filter_length=6,
+        model.add(Convolution1D(nb_filter=256,
+                                filter_length=1,#6,
                                 border_mode='same', # 'valid', #The valid means there is no padding around input or feature map, while same means there are some padding around input or feature map, making the output feature map's size same as the input's
                                 activation='relu',
                                 input_shape=(1, self.input_dim),
@@ -132,9 +130,10 @@ class CNNBidModel(BidModelInterface):
                                 # glorot_uniform for both gets AUC: 0.868817 | AUC: 0.863290  with avg pool at end
                                 # he_uniform for both gets AUC: 0.868218 | AUC: 0.873585 with avg pool at end
                                 ))
+        #model.add(Dense(256,init='lecun_uniform',input_shape=(1,self.input_dim),activation='relu'))
 
         # model.add(MaxPooling1D(pool_length=2, stride=None, border_mode='same'))
-        model.add(AveragePooling1D(pool_length=2, stride=None, border_mode='same'))
+        ## TODO: removed model.add(AveragePooling1D(pool_length=2, stride=None, border_mode='same'))
         # add a new conv1d on top
         # model.add(Convolution1D(256, 3, border_mode='same', init='glorot_uniform', activation='relu', )) #on the fence about effect
 
@@ -156,8 +155,8 @@ class CNNBidModel(BidModelInterface):
         model.add(GlobalAveragePooling1D())
 
         # We add a vanilla hidden layer:
-        model.add(Dense(256, init='glorot_uniform'))
-        model.add(Dropout(0.2))  # 0.1 seems good, but is it overfitting?
+        model.add(Dense(128, init='glorot_uniform'))
+        model.add(Dropout(0.1))  # 0.1 seems good, but is it overfitting?
         model.add(Activation('relu'))
 
         # # We project onto a single unit output layer, and squash it with a sigmoid:
@@ -205,7 +204,7 @@ class CNNBidModel(BidModelInterface):
                                 class_weight=self.train_class_weight,
                                 callbacks=[checkpointer, earlystopper],
                                 verbose=2  # 0 silent, 1 verbose, 2 one log line per epoch
-                                )  # TODO add callbacks, shuffle?
+                                )
         else:
             print("== Training model using training + validation data for validation")
             history = self.click_pred_model.fit(self.X_train, [self.Y_click_train], \
@@ -215,7 +214,7 @@ class CNNBidModel(BidModelInterface):
                                 class_weight=self.train_class_weight,
                                 callbacks=[checkpointer, earlystopper],
                                 verbose=2  # 0 silent, 1 verbose, 2 one log line per epoch
-                                )  # TODO add callbacks, shuffle?
+                                )
 
 
 
@@ -252,8 +251,8 @@ if __name__ == "__main__":
     #TRAIN_FILE_PATH = "./data/medium_train_cleaned_prune.csv"  # "./data/larger_train_cleaned_prune.csv" #"../dataset/train_cleaned_prune.csv" #"./data.pruned/train_cleaned_prune.csv"  # "../dataset/train.csv"
     #TRAIN2_FILE_PATH = "" #./data/small_train_cleaned_prune.csv"  # "./data/larger_train_cleaned_prune.csv" #"../dataset/train_cleaned_prune.csv" #"./data.pruned/train_cleaned_prune.csv"  # "../dataset/train.csv"
     TRAIN_FILE_PATH = "./data.final/train1_cleaned_prune.csv"
-    TRAIN2_FILE_PATH = "./data.final/train2_cleaned_prune.csv"
-    TRAIN3_FILE_PATH = "./data.final/train3_cleaned_prune.csv"
+    TRAIN2_FILE_PATH = "" #"./data.final/train2_cleaned_prune.csv"
+    TRAIN3_FILE_PATH = "" #"./data.final/train3_cleaned_prune.csv"
     VALIDATION_FILE_PATH = "./data.final/validation_cleaned.csv" #"" #"../dataset/validation_cleaned_prune.csv" #"./data.pruned/validation_cleaned_prune.csv"  # "../dataset/validation.csv" "" #
     TEST_FILE_PATH = "./data.final/test.csv"
 

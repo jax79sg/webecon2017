@@ -20,7 +20,8 @@ class BidEstimator():
         '''
         # print("y_pred: ", y_pred[0:10])
         #bids = [base_bid * (i/avg_ctr) for i in y_pred]
-        bids = base_bid * (y_pred / avg_ctr)
+        bids = base_bid * (np.array(y_pred) / avg_ctr)
+        bids=bids.astype(int)
         # print("ave bid: ", np.mean(bids))
         # print(bids[0:10])
 
@@ -136,7 +137,7 @@ class BidEstimator():
         # TODO this could be generalised to other models too.
         performance_list = []
         if bidpriceest_model == 'linearBidPrice':
-            for base_bid in range(50, 300, 10):  # range(100,300,10):
+            for base_bid in np.arange(0.025,2.50,0.025): #range(1, 300, 1):  # range(100,300,10):
                 print(" = base_bid = {}".format(base_bid))
                 bids = self.linearBidPrice(y_prob, base_bid, avg_ctr)
                 # format bids into bidids pandas frame
@@ -148,22 +149,35 @@ class BidEstimator():
                 myEvaluator.resultDict['base_bid'] = base_bid
                 # print(myEvaluator.resultDict)
                 performance_list += [myEvaluator.resultDict]
+                if myEvaluator.resultDict['trimmed_bids'] > 0:
+                    print("Moving to next pred_threshold as bid trimming started.")
+                    break
         elif bidpriceest_model == 'linearBidPrice_variation':
+            min_base_bid = 0.1
+            max_base_bid = 1.0
+            increment_base_bid=0.025
             for pred_threshold in np.arange(0.05,1.00,0.05): #np.arange(0.1,1.00,0.1): #
                 print("== pred_threshold = {}".format(pred_threshold))
-                for base_bid in range(50,500,10):#range(100,300,10):
+                for base_bid in np.arange(min_base_bid, max_base_bid, increment_base_bid): #range(50,500,10):#range(100,300,10):
                     print(" = base_bid = {}".format(base_bid))
                     bids=self.linearBidPrice_variation(y_prob,base_bid,avg_ctr, slotprices,pred_threshold)
                     # format bids into bidids pandas frame
                     est_bids_df = gold_df[['bidid']].copy()
                     est_bids_df['bidprice'] = bids
                     myEvaluator = Evaluator()
-                    myEvaluator.computePerformanceMetricsDF(budget, est_bids_df, gold_df, verbose=True)
+                    myEvaluator.computePerformanceMetricsDF(budget, est_bids_df, gold_df, verbose=False)
                     #myEvaluator.printResult()
                     myEvaluator.resultDict['pred_threshold']=pred_threshold
                     myEvaluator.resultDict['base_bid']=base_bid
                     #print(myEvaluator.resultDict)
                     performance_list+=[myEvaluator.resultDict]
+                    #stop search if we start trimming bids, as it's downhill from there.
+                    if myEvaluator.resultDict['trimmed_bids'] > 0:
+                        print("Moving to next pred_threshold as bid trimming started.")
+                        break
+                # move base bid range as threshold goes up.
+                min_base_bid += 0 #0.05#0
+                #max_base_bid += 10
         elif bidpriceest_model == 'linearBidPrice_mConfi':
             myEvaluator = Evaluator()
 
@@ -276,3 +290,8 @@ class BidEstimator():
         #     print("%.1f\t%d\t%d\t%.4f\t%.0f" % (i['pred_threshold'], i['base_bid'], i['click'], i['CTR'], i['spend']/1000))
 
         return best_pred_thresh,best_base_bid,performance_pd
+
+
+# if __name__ == "__main__":
+#     bid_estimator = BidEstimator()
+#     bid_estimator.gridSearch_bidPrice([0.1, 0.9, 1.0], 0.00075, 0, [0, 1, 1], bidpriceest_model='linearBidPrice')
