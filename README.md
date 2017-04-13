@@ -1,6 +1,16 @@
 # webecon2017
 Web Economics assignment
 
+Dependancies
+'pandas'
+'numpy'
+'matplotlib/pyplot.py'
+'sklearn/metrics'
+'scipy'
+'polylearn'
+'Keras'
+'xgboost'
+
 Data files to use for final submission:
    * ./data.final/
      * test.csv
@@ -32,3 +42,6 @@ Some stats on train.csv for reference
     Number of unique slotheight:  14
     Number of unique slotprice:  284
     Average CTR:  0.000745451003487
+
+
+
