@@ -12,6 +12,8 @@ Dependancies
 * 'xgboost'
 * 'itertools'
 * 'imblearn'
+* 'patsy'
+
 
 Data files to use for final submission:
    * ./data.final/
