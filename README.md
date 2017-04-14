@@ -2,14 +2,14 @@
 Web Economics assignment
 
 Dependancies
-'pandas'
-'numpy'
-'matplotlib/pyplot.py'
-'sklearn/metrics'
-'scipy'
-'polylearn'
-'Keras'
-'xgboost'
+* 'pandas'
+* 'numpy'
+* 'matplotlib'
+* 'sklearn'
+* 'scipy'
+* 'polylearn'
+* 'Keras'
+* 'xgboost'
 
 Data files to use for final submission:
    * ./data.final/
