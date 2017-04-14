@@ -10,6 +10,8 @@ Dependancies
 * 'polylearn'
 * 'Keras'
 * 'xgboost'
+* 'itertools'
+* 'imblearn'
 
 Data files to use for final submission:
    * ./data.final/
