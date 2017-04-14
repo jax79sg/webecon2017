@@ -8,11 +8,13 @@ Dependancies
 * 'sklearn'
 * 'scipy'
 * 'polylearn'
+* 'fastfm'
 * 'keras version 1.2.2'
 * 'tensorflow version 1.0'
 * 'xgboost'
 * 'itertools'
 * 'imblearn'
+* 'patsy'
 
 Data files to use for final submission:
    * ./data.final/
